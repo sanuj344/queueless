@@ -43,25 +43,27 @@ export default function Navbar() {
               Home
             </Link>
             <Link
-              to="/menu"
+              to={user?.role === 'vendor' ? '/vendor/menu' : '/menu'}
               className={`text-sm font-medium transition-colors ${
-                location.pathname === '/menu'
+                location.pathname === '/menu' || location.pathname === '/vendor/menu'
                   ? 'text-[#8cb800] dark:text-[#d4ff00]'
                   : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
               }`}
             >
               Menu
             </Link>
-            <Link
-              to="/order-status"
-              className={`text-sm font-medium transition-colors ${
-                location.pathname === '/order-status'
-                  ? 'text-[#8cb800] dark:text-[#d4ff00]'
-                  : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-              }`}
-            >
-              Your Order
-            </Link>
+            {user?.role !== 'vendor' && (
+              <Link
+                to="/order-status"
+                className={`text-sm font-medium transition-colors ${
+                  location.pathname === '/order-status'
+                    ? 'text-[#8cb800] dark:text-[#d4ff00]'
+                    : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                }`}
+              >
+                Your Order
+              </Link>
+            )}
             {isAuthenticated && (
               <Link
                 to={getDashboardLink()}

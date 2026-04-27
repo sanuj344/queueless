@@ -1,50 +1,55 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import api from '../utils/api';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem('ql-user');
+    const stored = localStorage.getItem('ql_user');
     return stored ? JSON.parse(stored) : null;
   });
 
   useEffect(() => {
     if (user) {
-      localStorage.setItem('ql-user', JSON.stringify(user));
+      localStorage.setItem('ql_user', JSON.stringify(user));
     } else {
-      localStorage.removeItem('ql-user');
+      localStorage.removeItem('ql_user');
+      localStorage.removeItem('ql_token');
     }
   }, [user]);
 
-  const login = (email, password, role) => {
-    // Mock login logic
-    const mockUser = {
-      id: role === 'vendor' ? 'v001' : (role === 'admin' ? 'a001' : 'c001'),
-      name: role === 'vendor' ? 'The Spice Room Admin' : (role === 'admin' ? 'Super Admin' : 'John Doe'),
-      email,
-      role // 'customer', 'vendor', or 'admin'
-    };
-    setUser(mockUser);
-    return mockUser;
+  const login = async (email, password) => {
+    try {
+      const response = await api.post('/auth/login', { email, password });
+      if (response.data.success) {
+        const { token, user: userData } = response.data.data;
+        localStorage.setItem('ql_token', token);
+        setUser(userData);
+        return userData;
+      }
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Login failed. Please check your credentials.');
+    }
   };
 
-  const loginAsAdmin = () => {
-    return login('admin@queueless.com', 'admin', 'admin');
+  const loginAsAdmin = async () => {
+    return login('admin@queueless.com', 'admin_placeholder');
   };
 
-  const register = (data, role) => {
-    // Mock registration
-    const mockUser = {
-      id: role === 'vendor' ? 'v002' : 'c002',
-      name: data.name,
-      email: data.email,
-      role
-    };
-    setUser(mockUser);
-    return mockUser;
+  const register = async (data, role) => {
+    try {
+      const response = await api.post('/auth/register', { ...data, role });
+      if (response.data.success) {
+        return response.data.data;
+      }
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Registration failed');
+    }
   };
 
   const logout = () => {
+    localStorage.removeItem('ql_token');
+    localStorage.removeItem('ql_user');
     setUser(null);
   };
 

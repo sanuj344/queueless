@@ -1,0 +1,36 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  customer
+  vendor
+  admin
+}
+
+model User {
+  id         String   @id @default(uuid())
+  name       String
+  email      String   @unique
+  mobile     String
+  password   String
+  outletName String?
+  address    String?
+  role       Role     @default(customer)
+  createdAt  DateTime @default(now())
+  menuItems  MenuItem[]
+}
+
+model MenuItem {
+  id        String   @id @default(uuid())
+  name      String
+  price     Float
+  category  String
+  vendorId  String
+  vendor    User     @relation(fields: [vendorId], references: [id])
+  createdAt DateTime @default(now())
+}

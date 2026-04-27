@@ -10,6 +10,8 @@ import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import VendorDashboard from './pages/vendor/VendorDashboard';
+import VendorMenuPage from './pages/vendor/VendorMenuPage';
+import CreateMenuPage from './pages/vendor/CreateMenuPage';
 
 function ProtectedRoute({ children, roleRequired }) {
   const { user, isAuthenticated } = useAuth();
@@ -56,6 +58,22 @@ export default function App() {
                 element={
                   <ProtectedRoute roleRequired="vendor">
                     <VendorDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/vendor/menu" 
+                element={
+                  <ProtectedRoute roleRequired="vendor">
+                    <VendorMenuPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/vendor/menu/create" 
+                element={
+                  <ProtectedRoute roleRequired="vendor">
+                    <CreateMenuPage />
                   </ProtectedRoute>
                 } 
               />
