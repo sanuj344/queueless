@@ -13,7 +13,7 @@ export default function QuantityStepper({ quantity, onIncrement, onDecrement, si
         className={[
           btnClass,
           'flex items-center justify-center',
-          'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white',
+          'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-white',
           'transition-colors font-bold',
         ].join(' ')}
         aria-label="Decrease quantity"
@@ -21,7 +21,7 @@ export default function QuantityStepper({ quantity, onIncrement, onDecrement, si
         −
       </button>
       <span
-        className={[countClass, 'text-center font-semibold text-white tabular-nums'].join(
+        className={[countClass, 'text-center font-semibold text-zinc-900 dark:text-white tabular-nums'].join(
           ' '
         )}
       >
@@ -32,7 +32,7 @@ export default function QuantityStepper({ quantity, onIncrement, onDecrement, si
         className={[
           btnClass,
           'flex items-center justify-center',
-          'bg-[#d4ff00] text-black hover:bg-[#c0e600]',
+          'bg-[#8cb800] dark:bg-[#d4ff00] text-white dark:text-black hover:bg-[#7a9e00] dark:hover:bg-[#c0e600]',
           'transition-colors font-bold',
         ].join(' ')}
         aria-label="Increase quantity"

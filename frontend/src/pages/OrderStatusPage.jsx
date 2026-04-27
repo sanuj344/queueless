@@ -22,11 +22,11 @@ export default function OrderStatusPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-4 sm:px-6 pt-24 pb-12">
+    <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-white flex flex-col items-center justify-center px-4 sm:px-6 pt-24 pb-12 transition-colors duration-300">
 
       {/* Order number badge */}
       <div className="mb-10 text-center">
-        <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[#d4ff00]/20 bg-[#d4ff00]/5 text-[#d4ff00] text-sm font-bold mb-4">
+        <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[#8cb800]/20 dark:border-[#d4ff00]/20 bg-[#8cb800]/5 dark:bg-[#d4ff00]/5 text-[#8cb800] dark:text-[#d4ff00] text-sm font-bold mb-4">
           Order #21
         </div>
         <h1 className="text-3xl sm:text-4xl font-black tracking-tight">
@@ -42,7 +42,7 @@ export default function OrderStatusPage() {
       </div>
 
       {/* Status Card */}
-      <div className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900 p-6 sm:p-8 mb-8">
+      <div className="w-full max-w-md rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-6 sm:p-8 mb-8">
 
         {/* Steps */}
         <div className="space-y-1">
@@ -60,10 +60,10 @@ export default function OrderStatusPage() {
                     className={[
                       'w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-all duration-500',
                       isDone
-                        ? 'bg-[#d4ff00] text-black shadow-[0_0_20px_rgba(212,255,0,0.4)]'
+                        ? 'bg-[#8cb800] dark:bg-[#d4ff00] text-white dark:text-black shadow-[0_0_20px_rgba(140,184,0,0.4)] dark:shadow-[0_0_20px_rgba(212,255,0,0.4)]'
                         : isActive
-                        ? 'bg-[#d4ff00]/20 border-2 border-[#d4ff00] text-[#d4ff00]'
-                        : 'bg-zinc-800 border border-zinc-700 text-zinc-600',
+                        ? 'bg-[#8cb800]/20 dark:bg-[#d4ff00]/20 border-2 border-[#8cb800] dark:border-[#d4ff00] text-[#8cb800] dark:text-[#d4ff00]'
+                        : 'bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-600',
                     ].join(' ')}
                   >
                     {isDone ? '✓' : isActive ? (
@@ -78,7 +78,7 @@ export default function OrderStatusPage() {
                     <p
                       className={[
                         'font-semibold text-sm transition-colors duration-300',
-                        isDone || isActive ? 'text-white' : 'text-zinc-600',
+                        isDone || isActive ? 'text-zinc-900 dark:text-white' : 'text-zinc-400 dark:text-zinc-600',
                       ].join(' ')}
                     >
                       {status.label}
@@ -91,15 +91,15 @@ export default function OrderStatusPage() {
                   {/* Active pulse */}
                   {isActive && (
                     <div className="shrink-0 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 bg-[#d4ff00] rounded-full animate-ping opacity-75" />
-                      <span className="text-[#d4ff00] text-xs font-semibold">Live</span>
+                      <span className="w-1.5 h-1.5 bg-[#8cb800] dark:bg-[#d4ff00] rounded-full animate-ping opacity-75" />
+                      <span className="text-[#8cb800] dark:text-[#d4ff00] text-xs font-semibold">Live</span>
                     </div>
                   )}
                 </div>
 
                 {/* Connector line */}
                 {i < orderStatuses.length - 1 && (
-                  <div className="ml-5 w-px h-4 bg-zinc-800" />
+                  <div className="ml-5 w-px h-4 bg-zinc-200 dark:bg-zinc-800" />
                 )}
               </div>
             );
@@ -108,12 +108,12 @@ export default function OrderStatusPage() {
       </div>
 
       {/* Pickup time */}
-      <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-5 mb-8 flex items-center justify-between">
+      <div className="w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-5 mb-8 flex items-center justify-between">
         <div>
           <p className="text-xs text-zinc-500 font-semibold uppercase tracking-wider mb-1">
             Estimated Pickup
           </p>
-          <p className="text-2xl font-black text-[#d4ff00]">{pickupTime()}</p>
+          <p className="text-2xl font-black text-[#8cb800] dark:text-[#d4ff00]">{pickupTime()}</p>
         </div>
         <div className="text-4xl">⏱</div>
       </div>

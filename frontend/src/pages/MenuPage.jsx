@@ -12,7 +12,7 @@ function MenuItem({ item }) {
   const qty = getItemQuantity(item.id);
 
   return (
-    <div className="flex gap-4 p-4 rounded-2xl border border-zinc-800 bg-zinc-900 hover:border-zinc-700 transition-all group">
+    <div className="flex gap-4 p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all group">
       {/* Veg/Non-veg indicator */}
       <div className="shrink-0 mt-1">
         <div
@@ -33,7 +33,7 @@ function MenuItem({ item }) {
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-2 mb-1">
-          <h3 className="font-semibold text-white text-sm sm:text-base">{item.name}</h3>
+          <h3 className="font-semibold text-zinc-900 dark:text-white text-sm sm:text-base">{item.name}</h3>
           {item.popular && (
             <Badge variant="neon">
               <span className="text-[10px]">★ Popular</span>
@@ -45,7 +45,7 @@ function MenuItem({ item }) {
         </p>
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <span className="text-white font-bold">{formatCurrency(item.price)}</span>
+            <span className="text-zinc-900 dark:text-white font-bold">{formatCurrency(item.price)}</span>
             <span className="text-xs text-zinc-600">· {item.prepTime} min</span>
           </div>
 
@@ -80,11 +80,11 @@ export default function MenuPage() {
       : menuItems.filter((i) => i.category === activeCategory);
 
   return (
-    <div className="min-h-screen bg-black text-white pb-32 sm:pb-24">
+    <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-white pb-32 sm:pb-24 transition-colors duration-300">
 
       {/* ─── Vendor Card ─── */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-28 pb-6">
-        <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6 sm:p-8">
+        <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-6 sm:p-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
             {/* Info */}
             <div className="flex items-center gap-4">
@@ -92,7 +92,7 @@ export default function MenuPage() {
                 🍽
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl font-black text-white">
+                <h1 className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white">
                   {vendor.name}
                 </h1>
                 <p className="text-sm text-zinc-500">{vendor.cuisine}</p>
@@ -112,7 +112,7 @@ export default function MenuPage() {
             </div>
 
             {/* QR badge */}
-            <div className="inline-flex shrink-0 items-center gap-2 px-4 py-2 rounded-xl border border-zinc-700 bg-zinc-800 text-sm text-zinc-400">
+            <div className="inline-flex shrink-0 items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 text-sm text-zinc-600 dark:text-zinc-400">
               <span>📱</span>
               <span>Scanned via QR</span>
             </div>
@@ -130,8 +130,8 @@ export default function MenuPage() {
               className={[
                 'shrink-0 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all',
                 activeCategory === cat
-                  ? 'bg-[#d4ff00] text-black shadow-[0_0_20px_rgba(212,255,0,0.2)]'
-                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white border border-zinc-700',
+                  ? 'bg-[#8cb800] dark:bg-[#d4ff00] text-white dark:text-black shadow-[0_0_20px_rgba(140,184,0,0.2)] dark:shadow-[0_0_20px_rgba(212,255,0,0.2)]'
+                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-white border border-zinc-200 dark:border-zinc-700',
               ].join(' ')}
             >
               {cat}
@@ -157,10 +157,10 @@ export default function MenuPage() {
         <div className="fixed bottom-0 inset-x-0 z-30 px-4 pb-4 pt-2 sm:hidden">
           <button
             onClick={openCart}
-            className="w-full flex items-center justify-between bg-[#d4ff00] text-black rounded-2xl px-5 py-4 font-bold shadow-[0_0_30px_rgba(212,255,0,0.25)]"
+            className="w-full flex items-center justify-between bg-[#8cb800] dark:bg-[#d4ff00] text-white dark:text-black rounded-2xl px-5 py-4 font-bold shadow-[0_0_30px_rgba(140,184,0,0.25)] dark:shadow-[0_0_30px_rgba(212,255,0,0.25)]"
           >
             <div className="flex items-center gap-3">
-              <span className="bg-black text-[#d4ff00] text-xs font-black w-6 h-6 rounded-full flex items-center justify-center">
+              <span className="bg-white dark:bg-black text-[#8cb800] dark:text-[#d4ff00] text-xs font-black w-6 h-6 rounded-full flex items-center justify-center">
                 {itemCount}
               </span>
               <span>View Cart</span>

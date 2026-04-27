@@ -44,17 +44,17 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
       {/* Panel */}
       <div
         className={[
-          'relative w-full bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl',
+          'relative w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-2xl shadow-black/10 dark:shadow-black/50',
           'animate-in slide-in-from-bottom-4 duration-300',
           sizeClasses[size] ?? sizeClasses.md,
         ].join(' ')}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-white">{title}</h2>
+          <h2 className="text-xl font-bold text-zinc-900 dark:text-white">{title}</h2>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-white transition-colors"
             aria-label="Close modal"
           >
             ✕

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
 @theme {
   --color-neon: #d4ff00;
   --color-neon-dim: #a8cc00;

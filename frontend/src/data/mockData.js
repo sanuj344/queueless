@@ -169,3 +169,28 @@ export const vendorSteps = [
     description: 'Customers scan, order, and pay. You see orders in real-time on your dashboard.',
   },
 ];
+
+export const mockOrders = [
+  { id: 'ORD-01', customer: 'Alice', items: '2x Tandoori Sliders, 1x Mango Lassi', status: 'pending', total: 627, time: '2 mins ago' },
+  { id: 'ORD-02', customer: 'Bob', items: '1x Butter Chicken Bowl', status: 'preparing', total: 349, time: '8 mins ago' },
+  { id: 'ORD-03', customer: 'Charlie', items: '1x Biryani Fusion, 1x Masala Fries', status: 'ready', total: 548, time: '15 mins ago' },
+  { id: 'ORD-04', customer: 'David', items: '2x Cold Brew Chai', status: 'completed', total: 238, time: '30 mins ago' },
+];
+
+export const mockVendorsExt = [
+  { id: 'v001', name: 'The Spice Room', status: 'active', sales: 124500, rating: 4.8 },
+  { id: 'v002', name: 'Neon Bites', status: 'pending', sales: 0, rating: 0 },
+  { id: 'v003', name: 'Waffle House', status: 'active', sales: 45200, rating: 4.2 },
+  { id: 'v004', name: 'Burger Station', status: 'suspended', sales: 8400, rating: 3.5 },
+];
+
+export const mockComplaints = [
+  { id: 'c01', user: 'Emma W.', text: 'Order was delayed by 30 mins.', status: 'open' },
+  { id: 'c02', user: 'Liam J.', text: 'Wrong item delivered.', status: 'resolved' },
+];
+
+export const adminKPIs = [
+  { label: 'Order Success Rate', value: '98.5%', trend: '+1.2%' },
+  { label: 'Avg Prep Time', value: '14 mins', trend: '-2 mins' },
+  { label: 'Cancellation Rate', value: '1.5%', trend: '-0.3%' },
+];

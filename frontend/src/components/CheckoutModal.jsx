@@ -43,7 +43,7 @@ export default function CheckoutModal() {
               {item.name}
               <span className="text-zinc-600 ml-1">×{item.quantity}</span>
             </span>
-            <span className="text-white font-medium tabular-nums shrink-0">
+            <span className="text-zinc-900 dark:text-white font-medium tabular-nums shrink-0">
               {formatCurrency(item.price * item.quantity)}
             </span>
           </div>
@@ -63,7 +63,7 @@ export default function CheckoutModal() {
             max={4}
             value={timeSlot}
             onChange={(e) => setTimeSlot(Number(e.target.value))}
-            className="w-full accent-[#d4ff00]"
+            className="w-full accent-[#8cb800] dark:accent-[#d4ff00]"
           />
           <div className="flex justify-between text-[10px] text-zinc-600">
             {slots.map((s) => (
@@ -71,26 +71,26 @@ export default function CheckoutModal() {
             ))}
           </div>
         </div>
-        <p className="mt-2 text-sm text-[#d4ff00] font-semibold">{slots[timeSlot]}</p>
+        <p className="mt-2 text-sm text-[#8cb800] dark:text-[#d4ff00] font-semibold">{slots[timeSlot]}</p>
       </div>
 
       {/* Cost breakdown */}
-      <div className="rounded-2xl bg-zinc-800 p-4 space-y-3 mb-6">
+      <div className="rounded-2xl bg-zinc-50 dark:bg-zinc-800 p-4 space-y-3 mb-6">
         <div className="flex justify-between text-sm">
           <span className="text-zinc-400">Subtotal</span>
-          <span className="text-white tabular-nums">{formatCurrency(subtotal)}</span>
+          <span className="text-zinc-900 dark:text-white tabular-nums">{formatCurrency(subtotal)}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-zinc-400">Platform fee (5%)</span>
-          <span className="text-white tabular-nums">{formatCurrency(fee)}</span>
+          <span className="text-zinc-900 dark:text-white tabular-nums">{formatCurrency(fee)}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-zinc-400">GST (5%)</span>
-          <span className="text-white tabular-nums">{formatCurrency(tax)}</span>
+          <span className="text-zinc-900 dark:text-white tabular-nums">{formatCurrency(tax)}</span>
         </div>
-        <div className="border-t border-zinc-700 pt-3 flex justify-between font-bold">
-          <span className="text-white">Total</span>
-          <span className="text-[#d4ff00] text-lg tabular-nums">{formatCurrency(total)}</span>
+        <div className="border-t border-zinc-200 dark:border-zinc-700 pt-3 flex justify-between font-bold">
+          <span className="text-zinc-900 dark:text-white">Total</span>
+          <span className="text-[#8cb800] dark:text-[#d4ff00] text-lg tabular-nums">{formatCurrency(total)}</span>
         </div>
       </div>
 
