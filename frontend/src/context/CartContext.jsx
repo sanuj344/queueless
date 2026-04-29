@@ -9,43 +9,69 @@ const initialState = {
   isCheckoutOpen: false,
 };
 
+// Lazy initializer to load from localStorage
+const init = (initial) => {
+  try {
+    const saved = localStorage.getItem('ql_cart');
+    if (saved) {
+      const parsedItems = JSON.parse(saved);
+      if (Array.isArray(parsedItems)) {
+        return { ...initial, items: parsedItems };
+      }
+    }
+  } catch (e) {
+    console.error('Failed to parse cart from localStorage:', e);
+  }
+  return initial;
+};
+
 function cartReducer(state, action) {
+  let newState;
+  const currentItems = state.items || [];
+
   switch (action.type) {
     case 'ADD_ITEM': {
-      const existing = state.items.find((i) => i.id === action.item.id);
+      const existing = currentItems.find((i) => i.id === action.item.id);
       if (existing) {
-        return {
+        newState = {
           ...state,
-          items: state.items.map((i) =>
+          items: currentItems.map((i) =>
             i.id === action.item.id ? { ...i, quantity: i.quantity + 1 } : i
           ),
         };
+      } else {
+        newState = { ...state, items: [...currentItems, { ...action.item, quantity: 1 }] };
       }
-      return { ...state, items: [...state.items, { ...action.item, quantity: 1 }] };
+      break;
     }
     case 'REMOVE_ITEM':
-      return { ...state, items: state.items.filter((i) => i.id !== action.id) };
+      newState = { ...state, items: currentItems.filter((i) => i.id !== action.id) };
+      break;
     case 'INCREMENT':
-      return {
+      newState = {
         ...state,
-        items: state.items.map((i) =>
+        items: currentItems.map((i) =>
           i.id === action.id ? { ...i, quantity: i.quantity + 1 } : i
         ),
       };
+      break;
     case 'DECREMENT': {
-      const item = state.items.find((i) => i.id === action.id);
+      const item = currentItems.find((i) => i.id === action.id);
       if (item?.quantity === 1) {
-        return { ...state, items: state.items.filter((i) => i.id !== action.id) };
+        newState = { ...state, items: currentItems.filter((i) => i.id !== action.id) };
+      } else {
+        newState = {
+          ...state,
+          items: currentItems.map((i) =>
+            i.id === action.id ? { ...i, quantity: i.quantity - 1 } : i
+          ),
+        };
       }
-      return {
-        ...state,
-        items: state.items.map((i) =>
-          i.id === action.id ? { ...i, quantity: i.quantity - 1 } : i
-        ),
-      };
+      break;
     }
     case 'CLEAR_CART':
-      return { ...state, items: [] };
+      newState = { ...state, items: [] };
+      break;
     case 'OPEN_CART':
       return { ...state, isOpen: true };
     case 'CLOSE_CART':
@@ -57,10 +83,16 @@ function cartReducer(state, action) {
     default:
       return state;
   }
+  
+  // Save items to localStorage on modification
+  if (newState && newState.items !== state.items) {
+    localStorage.setItem('ql_cart', JSON.stringify(newState.items));
+  }
+  return newState || state;
 }
 
 export function CartProvider({ children }) {
-  const [state, dispatch] = useReducer(cartReducer, initialState);
+  const [state, dispatch] = useReducer(cartReducer, initialState, init);
 
   const subtotal = calcSubtotal(state.items);
   const fee = calcFee(subtotal);

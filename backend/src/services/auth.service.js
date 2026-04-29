@@ -4,9 +4,16 @@ const prisma = require('../config/prisma');
 const { ApiError } = require('../utils/errors');
 
 const registerUser = async (data) => {
-  const { name, email, mobile, password, outletName, address, role } = data;
+  const { 
+    name, email, mobile, password, role,
+    outletName, address, averagePrepTime,
+    accountNumber, ifscCode, accountHolderName 
+  } = data;
 
-  if (role === 'vendor' && (!name || !outletName || !mobile || !password || !address)) {
+  if (role === 'vendor' && (
+    !name || !outletName || !mobile || !password || !address || 
+    averagePrepTime === undefined || !accountNumber || !ifscCode || !accountHolderName
+  )) {
     throw new ApiError(400, 'All vendor fields are required');
   }
 
@@ -26,9 +33,13 @@ const registerUser = async (data) => {
       email,
       mobile,
       password: hashedPassword,
+      role,
       outletName,
       address,
-      role,
+      averagePrepTime,
+      accountNumber,
+      ifscCode,
+      accountHolderName,
     },
     select: {
       id: true,
@@ -37,6 +48,7 @@ const registerUser = async (data) => {
       mobile: true,
       outletName: true,
       address: true,
+      averagePrepTime: true,
       role: true,
       createdAt: true,
     },

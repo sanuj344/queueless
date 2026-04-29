@@ -1,9 +1,10 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import ThemeToggle from './ThemeToggle';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
+  const navigate = useNavigate();
   const { itemCount, openCart } = useCart();
   const { user, isAuthenticated, logout } = useAuth();
   const location = useLocation();
@@ -38,43 +39,72 @@ export default function Navbar() {
           {/* Nav Links — desktop */}
           {user && (
             <div className="hidden md:flex items-center gap-6">
-              <Link
-                to="/"
-                className={`text-sm font-medium transition-colors ${
-                  location.pathname === '/'
-                    ? 'text-[#8cb800] dark:text-[#d4ff00]'
-                    : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                }`}
-              >
-                Home
-              </Link>
-              {user?.role !== 'admin' && (
-                <Link
-                  to={user?.role === 'vendor' ? '/vendor/menu' : '/menu'}
-                  className={`text-sm font-medium transition-colors ${
-                    location.pathname === '/menu' || location.pathname === '/vendor/menu'
-                      ? 'text-[#8cb800] dark:text-[#d4ff00]'
-                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                  }`}
-                >
-                  Menu
-                </Link>
+              {/* Customer Specific */}
+              {user.role === 'customer' && (
+                <>
+                  <Link
+                    to="/"
+                    className={`text-sm font-medium transition-colors ${
+                      location.pathname === '/'
+                        ? 'text-[#8cb800] dark:text-[#d4ff00]'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Home
+                  </Link>
+                  <Link
+                    to="/menu"
+                    className={`text-sm font-medium transition-colors ${
+                      location.pathname === '/menu'
+                        ? 'text-[#8cb800] dark:text-[#d4ff00]'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Menu
+                  </Link>
+                  <Link
+                    to="/order-status"
+                    className={`text-sm font-medium transition-colors ${
+                      location.pathname.startsWith('/order-status')
+                        ? 'text-[#8cb800] dark:text-[#d4ff00]'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Your Order
+                  </Link>
+                </>
               )}
-              {user?.role !== 'vendor' && user?.role !== 'admin' && (
-                <Link
-                  to="/order-status"
-                  className={`text-sm font-medium transition-colors ${
-                    location.pathname === '/order-status'
-                      ? 'text-[#8cb800] dark:text-[#d4ff00]'
-                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                  }`}
-                >
-                  Your Order
-                </Link>
+
+              {/* Vendor Specific */}
+              {user.role === 'vendor' && (
+                <>
+                  <Link
+                    to="/vendor/dashboard"
+                    className={`text-sm font-medium transition-colors ${
+                      location.pathname.includes('dashboard')
+                        ? 'text-[#8cb800] dark:text-[#d4ff00]'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Dashboard
+                  </Link>
+                  <Link
+                    to="/vendor/menu"
+                    className={`text-sm font-medium transition-colors ${
+                      location.pathname === '/vendor/menu'
+                        ? 'text-[#8cb800] dark:text-[#d4ff00]'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Manage Menu
+                  </Link>
+                </>
               )}
-              {isAuthenticated && user?.role !== 'customer' && (
+
+              {/* Admin Specific */}
+              {user.role === 'admin' && (
                 <Link
-                  to={getDashboardLink()}
+                  to="/admin/dashboard"
                   className={`text-sm font-medium transition-colors ${
                     location.pathname.includes('dashboard')
                       ? 'text-[#8cb800] dark:text-[#d4ff00]'
@@ -91,19 +121,17 @@ export default function Navbar() {
           <div className="flex items-center gap-3">
             <ThemeToggle />
 
-            {user && isMenuPage && (
+            {user && itemCount > 0 && (
               <button
-                onClick={openCart}
+                onClick={() => navigate('/cart')}
                 className="relative flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-500 text-zinc-900 dark:text-white px-3 py-2 rounded-xl text-sm font-medium transition-all"
                 aria-label="Open cart"
               >
                 <span>🛒</span>
-                {itemCount > 0 && (
-                  <span className="flex items-center gap-1">
-                    <span className="text-zinc-400">·</span>
-                    <span className="text-[#8cb800] dark:text-[#d4ff00] font-bold">{itemCount}</span>
-                  </span>
-                )}
+                <span className="flex items-center gap-1">
+                  <span className="text-zinc-400">·</span>
+                  <span className="text-[#8cb800] dark:text-[#d4ff00] font-bold">{itemCount}</span>
+                </span>
               </button>
             )}
 

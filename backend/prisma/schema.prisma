@@ -13,24 +13,44 @@ enum Role {
 }
 
 model User {
-  id         String   @id @default(uuid())
-  name       String
-  email      String   @unique
-  mobile     String
-  password   String
-  outletName String?
-  address    String?
-  role       Role     @default(customer)
-  createdAt  DateTime @default(now())
-  menuItems  MenuItem[]
+  id                String   @id @default(uuid())
+  name              String
+  email             String   @unique
+  mobile            String
+  password          String
+  outletName        String?
+  address           String?
+  averagePrepTime   Int?
+  accountNumber     String?
+  ifscCode          String?
+  accountHolderName String?
+  isApproved        Boolean  @default(false)
+  hasGst            Boolean  @default(false)
+  gstNumber         String?
+  role              Role     @default(customer)
+  createdAt         DateTime @default(now())
+  menuItems         MenuItem[]
 }
 
 model MenuItem {
-  id        String   @id @default(uuid())
-  name      String
-  price     Float
-  category  String
-  vendorId  String
-  vendor    User     @relation(fields: [vendorId], references: [id])
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  name        String
+  price       Float
+  category    String
+  description String   @default("")
+  prepTime    Int      @default(10)
+  vendorId    String
+  vendor      User     @relation(fields: [vendorId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model Order {
+  id            String   @id @default(uuid())
+  customerName  String
+  customerPhone String
+  vendorId      String
+  items         Json
+  totalAmount   Float
+  status        String   @default("pending") // pending, accepted, preparing, ready, completed
+  createdAt     DateTime @default(now())
 }

@@ -10,13 +10,20 @@ export default function RegisterPage() {
   const { register } = useAuth();
   
   const [role, setRole] = useState(searchParams.get('vendor') === 'true' ? 'vendor' : 'customer');
+  const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     name: '',
     outletName: '',
     email: '',
     password: '',
     mobile: '',
-    address: ''
+    address: '',
+    averagePrepTime: '',
+    accountNumber: '',
+    ifscCode: '',
+    accountHolderName: '',
+    hasGst: false,
+    gstNumber: ''
   });
 
   const [error, setError] = useState('');
@@ -24,41 +31,79 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (e) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value, type, checked } = e.target;
+    if (name === 'ifscCode' || name === 'gstNumber') {
+      setFormData(prev => ({ ...prev, [name]: value.toUpperCase() }));
+    } else if (type === 'checkbox') {
+      setFormData(prev => ({ ...prev, [name]: checked }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const validateStep1 = () => {
+    if (!formData.name || !formData.email || !formData.mobile || !formData.password) {
+      setError('Basic details are required.');
+      return false;
+    }
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return false;
+    }
+    if (!/^\d{10}$/.test(formData.mobile)) {
+      setError('Mobile number must be exactly 10 digits.');
+      return false;
+    }
+    if (role === 'vendor') {
+      if (!formData.outletName || !formData.address || !formData.averagePrepTime) {
+        setError('All vendor business details are required.');
+        return false;
+      }
+      if (formData.hasGst && !formData.gstNumber) {
+        setError('Please provide your GST number.');
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleNext = (e) => {
+    e.preventDefault();
+    setError('');
+    if (validateStep1()) {
+      setStep(2);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setIsLoading(true);
     
-    // Extracted clean validations
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters long.');
-      setIsLoading(false);
-      return;
-    }
-
-    if (!/^\d{10}$/.test(formData.mobile)) {
-      setError('Mobile number must be exactly 10 digits.');
-      setIsLoading(false);
-      return;
-    }
-
-    if (role === 'vendor') {
-      if (!formData.outletName.trim() || !formData.address.trim()) {
-        setError('Vendor accounts require an Outlet Name and Address.');
-        setIsLoading(false);
+    if (role === 'vendor' && step === 2) {
+      if (!formData.accountHolderName || !formData.accountNumber || !formData.ifscCode) {
+        setError('All bank details are required for vendors.');
+        return;
+      }
+      if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifscCode)) {
+        setError('Invalid IFSC code format (e.g., SBIN0123456).');
         return;
       }
     }
+
+    setIsLoading(true);
     
     try {
-      await register(formData, role);
+      const payload = {
+        ...formData,
+        averagePrepTime: role === 'vendor' ? parseInt(formData.averagePrepTime) : undefined,
+        hasGst: role === 'vendor' ? formData.hasGst : false,
+        gstNumber: role === 'vendor' ? formData.gstNumber : null
+      };
+      await register(payload, role);
       setSuccessMsg(`Your ${role} account was securely created! Redirecting to login...`);
       setTimeout(() => navigate('/auth'), 1500);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -68,174 +113,268 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-white dark:bg-black flex flex-col justify-center py-12 sm:px-6 lg:px-8 transition-colors duration-300">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <h2 className="mt-6 text-center text-3xl font-extrabold text-zinc-900 dark:text-white">
-          Create a new account
+          {role === 'vendor' ? `Vendor Onboarding - Step ${step}` : 'Create customer account'}
         </h2>
+        {role === 'vendor' && (
+          <div className="mt-4 flex justify-center gap-2">
+            <div className={`h-1.5 w-12 rounded-full ${step >= 1 ? 'bg-[#d4ff00]' : 'bg-zinc-800'}`} />
+            <div className={`h-1.5 w-12 rounded-full ${step >= 2 ? 'bg-[#d4ff00]' : 'bg-zinc-800'}`} />
+          </div>
+        )}
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <Card className="py-8 px-4 sm:px-10">
-          <form className="space-y-6" onSubmit={handleSubmit}>
+        <Card className="py-8 px-4 sm:px-10 shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(212,255,0,0.05)] border-zinc-200 dark:border-zinc-800">
+          <form className="space-y-6" onSubmit={role === 'vendor' && step === 1 ? handleNext : handleSubmit}>
             {error && (
-              <div className="p-3 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm font-medium rounded-xl">
+              <div className="p-3 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm font-medium rounded-xl border border-red-200 dark:border-red-800/50">
                 {error}
               </div>
             )}
             {successMsg && (
-              <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-sm font-medium rounded-xl">
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-sm font-medium rounded-xl border border-emerald-200 dark:border-emerald-800/50">
                 {successMsg}
               </div>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Full Name
-              </label>
-              <div className="mt-1">
-                <input
-                  name="name"
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-xl shadow-sm placeholder-zinc-400 focus:outline-none focus:ring-[#8cb800] dark:focus:ring-[#d4ff00] focus:border-[#8cb800] dark:focus:border-[#d4ff00] sm:text-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                />
-              </div>
-            </div>
+            {step === 1 && (
+              <div className="space-y-5 animate-in fade-in slide-in-from-left-4 duration-300">
+                <div>
+                  <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-400 mb-1">Full Name</label>
+                  <input
+                    name="name"
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={handleChange}
+                    className="appearance-none block w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-2xl shadow-sm placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#d4ff00]/20 focus:border-[#d4ff00] transition-all bg-white dark:bg-zinc-900/50 text-zinc-900 dark:text-white sm:text-sm"
+                  />
+                </div>
 
-            {role === 'vendor' && (
-              <>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                    Outlet Name (Business)
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      name="outletName"
-                      type="text"
-                      required={role === 'vendor'}
-                      value={formData.outletName}
-                      onChange={handleChange}
-                      className="appearance-none block w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-xl shadow-sm placeholder-zinc-400 focus:outline-none focus:ring-[#8cb800] dark:focus:ring-[#d4ff00] focus:border-[#8cb800] dark:focus:border-[#d4ff00] sm:text-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                    />
-                  </div>
+                  <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-400 mb-1">Email Address</label>
+                  <input
+                    name="email"
+                    type="email"
+                    required
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="appearance-none block w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d4ff00]/20 focus:border-[#d4ff00] transition-all bg-white dark:bg-zinc-900/50 text-zinc-900 dark:text-white sm:text-sm"
+                  />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                    Business Address
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      name="address"
-                      type="text"
-                      required={role === 'vendor'}
-                      value={formData.address}
-                      onChange={handleChange}
-                      className="appearance-none block w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-xl shadow-sm placeholder-zinc-400 focus:outline-none focus:ring-[#8cb800] dark:focus:ring-[#d4ff00] focus:border-[#8cb800] dark:focus:border-[#d4ff00] sm:text-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                    />
-                  </div>
+                  <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-400 mb-1">Mobile Number (Linked with Bank)</label>
+                  <input
+                    name="mobile"
+                    type="tel"
+                    maxLength="10"
+                    required
+                    value={formData.mobile}
+                    onChange={handleChange}
+                    placeholder="10-digit number"
+                    className="appearance-none block w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d4ff00]/20 focus:border-[#d4ff00] transition-all bg-white dark:bg-zinc-900/50 text-zinc-900 dark:text-white sm:text-sm font-mono"
+                  />
                 </div>
-              </>
+
+                {role === 'vendor' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="col-span-2">
+                        <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-400 mb-1">Outlet Name</label>
+                        <input
+                          name="outletName"
+                          type="text"
+                          required
+                          value={formData.outletName}
+                          onChange={handleChange}
+                          className="appearance-none block w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d4ff00]/20 focus:border-[#d4ff00] transition-all bg-white dark:bg-zinc-900/50 text-zinc-900 dark:text-white sm:text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-400 mb-1">Average Prep Time (minutes)</label>
+                      <input
+                        name="averagePrepTime"
+                        type="number"
+                        required
+                        min="1"
+                        value={formData.averagePrepTime}
+                        onChange={handleChange}
+                        placeholder="e.g. 15"
+                        className="appearance-none block w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d4ff00]/20 focus:border-[#d4ff00] transition-all bg-white dark:bg-zinc-900/50 text-zinc-900 dark:text-white sm:text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-400 mb-1">Business Address</label>
+                      <textarea
+                        name="address"
+                        required
+                        value={formData.address}
+                        onChange={handleChange}
+                        className="appearance-none block w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d4ff00]/20 focus:border-[#d4ff00] transition-all bg-white dark:bg-zinc-900/50 text-zinc-900 dark:text-white sm:text-sm h-20 resize-none"
+                      />
+                    </div>
+                    
+                    <div className="space-y-4 pt-2">
+                      <label className="flex items-center gap-3 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          name="hasGst"
+                          checked={formData.hasGst}
+                          onChange={handleChange}
+                          className="w-5 h-5 rounded-lg border-zinc-300 dark:border-zinc-700 text-[#d4ff00] focus:ring-[#d4ff00] transition-all"
+                        />
+                        <span className="text-sm font-bold text-zinc-700 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">
+                          Do you have GST?
+                        </span>
+                      </label>
+                      
+                      {formData.hasGst && (
+                        <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                          <label className="block text-[10px] font-black uppercase tracking-widest text-[#8cb800] dark:text-[#d4ff00] mb-1 ml-1">GST Number</label>
+                          <input
+                            name="gstNumber"
+                            type="text"
+                            required
+                            placeholder="Enter 15-digit GSTIN"
+                            maxLength="15"
+                            value={formData.gstNumber}
+                            onChange={handleChange}
+                            className="appearance-none block w-full px-4 py-3 border border-[#8cb800]/30 dark:border-[#d4ff00]/30 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d4ff00]/20 focus:border-[#d4ff00] transition-all bg-[#8cb800]/5 dark:bg-[#d4ff00]/5 text-zinc-900 dark:text-white sm:text-sm font-mono uppercase"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {!searchParams.get('vendor') && (
+                  <div>
+                    <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-400 mb-2">Registering as</label>
+                    <div className="flex gap-4">
+                      <label className="flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 cursor-pointer transition-all has-[:checked]:border-[#d4ff00] has-[:checked]:bg-[#d4ff00]/5">
+                        <input
+                          type="radio"
+                          name="role"
+                          value="customer"
+                          checked={role === 'customer'}
+                          onChange={() => setRole('customer')}
+                          className="accent-[#d4ff00]"
+                        />
+                        <span className="text-sm font-medium">Customer</span>
+                      </label>
+                      <label className="flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 cursor-pointer transition-all has-[:checked]:border-[#d4ff00] has-[:checked]:bg-[#d4ff00]/5">
+                        <input
+                          type="radio"
+                          name="role"
+                          value="vendor"
+                          checked={role === 'vendor'}
+                          onChange={() => setRole('vendor')}
+                          className="accent-[#d4ff00]"
+                        />
+                        <span className="text-sm font-medium">Vendor</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-400 mb-1">Password</label>
+                  <input
+                    name="password"
+                    type="password"
+                    required
+                    value={formData.password}
+                    onChange={handleChange}
+                    className="appearance-none block w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d4ff00]/20 focus:border-[#d4ff00] transition-all bg-white dark:bg-zinc-900/50 text-zinc-900 dark:text-white sm:text-sm"
+                  />
+                </div>
+              </div>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Email address
-              </label>
-              <div className="mt-1">
-                <input
-                  name="email"
-                  type="email"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-xl shadow-sm placeholder-zinc-400 focus:outline-none focus:ring-[#8cb800] dark:focus:ring-[#d4ff00] focus:border-[#8cb800] dark:focus:border-[#d4ff00] sm:text-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Mobile Number
-              </label>
-              <div className="mt-1">
-                <input
-                  name="mobile"
-                  type="tel"
-                  maxLength="10"
-                  pattern="\d{10}"
-                  title="Mobile number must be exactly 10 digits"
-                  required
-                  value={formData.mobile}
-                  onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-xl shadow-sm placeholder-zinc-400 focus:outline-none focus:ring-[#8cb800] dark:focus:ring-[#d4ff00] focus:border-[#8cb800] dark:focus:border-[#d4ff00] sm:text-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                I am registering as a
-              </label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
+            {step === 2 && role === 'vendor' && (
+              <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="p-4 bg-zinc-100 dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 mb-6">
+                  <p className="text-xs text-zinc-500 font-medium leading-relaxed">
+                    Financial details are required to process your payouts. Please ensure the information matches your bank records.
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-400 mb-1">Account Holder Name</label>
                   <input
-                    type="radio"
-                    name="role"
-                    value="customer"
-                    checked={role === 'customer'}
-                    onChange={() => setRole('customer')}
-                    className="accent-[#8cb800] dark:accent-[#d4ff00]"
+                    name="accountHolderName"
+                    type="text"
+                    required
+                    value={formData.accountHolderName}
+                    onChange={handleChange}
+                    className="appearance-none block w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d4ff00]/20 focus:border-[#d4ff00] transition-all bg-white dark:bg-zinc-900/50 text-zinc-900 dark:text-white sm:text-sm"
                   />
-                  <span className="text-sm text-zinc-700 dark:text-zinc-300">Customer</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-400 mb-1">Bank Account Number</label>
                   <input
-                    type="radio"
-                    name="role"
-                    value="vendor"
-                    checked={role === 'vendor'}
-                    onChange={() => setRole('vendor')}
-                    className="accent-[#8cb800] dark:accent-[#d4ff00]"
+                    name="accountNumber"
+                    type="text"
+                    required
+                    value={formData.accountNumber}
+                    onChange={handleChange}
+                    className="appearance-none block w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d4ff00]/20 focus:border-[#d4ff00] transition-all bg-white dark:bg-zinc-900/50 text-zinc-900 dark:text-white sm:text-sm font-mono"
                   />
-                  <span className="text-sm text-zinc-700 dark:text-zinc-300">Vendor</span>
-                </label>
-              </div>
-            </div>
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Password
-              </label>
-              <div className="mt-1">
-                <input
-                  name="password"
-                  type="password"
-                  required
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-xl shadow-sm placeholder-zinc-400 focus:outline-none focus:ring-[#8cb800] dark:focus:ring-[#d4ff00] focus:border-[#8cb800] dark:focus:border-[#d4ff00] sm:text-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                />
+                <div>
+                  <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-400 mb-1">IFSC Code</label>
+                  <input
+                    name="ifscCode"
+                    type="text"
+                    maxLength="11"
+                    required
+                    placeholder="e.g. SBIN0001234"
+                    value={formData.ifscCode}
+                    onChange={handleChange}
+                    className="appearance-none block w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d4ff00]/20 focus:border-[#d4ff00] transition-all bg-white dark:bg-zinc-900/50 text-zinc-900 dark:text-white sm:text-sm font-mono uppercase"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
-            <Button type="submit" fullWidth disabled={isLoading || !!successMsg}>
-              {isLoading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-5 w-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Registering...
-                </span>
-              ) : (
-                'Register'
+            <div className="flex gap-3 pt-4">
+              {step === 2 && (
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="flex-1 px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-2xl text-zinc-700 dark:text-zinc-300 font-bold hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all"
+                >
+                  Back
+                </button>
               )}
-            </Button>
+              <Button 
+                type="submit" 
+                fullWidth={step === 1 && role === 'vendor' ? false : true}
+                className={step === 1 && role === 'vendor' ? 'flex-1' : 'w-full'}
+                disabled={isLoading || !!successMsg}
+              >
+                {isLoading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-5 w-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                  </span>
+                ) : (
+                  role === 'vendor' && step === 1 ? 'Next Step' : 'Create Account'
+                )}
+              </Button>
+            </div>
           </form>
 
-          <div className="mt-6 text-center text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">Already have an account? </span>
-              <Link to="/auth" className="font-medium text-[#8cb800] dark:text-[#d4ff00] hover:text-[#7a9e00] dark:hover:text-[#c0e600]">
+          <div className="mt-8 pt-6 border-t border-zinc-200 dark:border-zinc-800 text-center text-sm">
+              <span className="text-zinc-600 dark:text-zinc-500">Already have an account? </span>
+              <Link to="/auth" className="font-bold text-[#d4ff00] hover:text-[#c0e600] transition-colors underline underline-offset-4 decoration-[#d4ff00]/30">
                 Sign in
               </Link>
           </div>

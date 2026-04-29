@@ -32,16 +32,8 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const loginAsAdmin = () => {
-    const adminUser = {
-      id: "admin-1",
-      name: "Admin",
-      email: "admin@queueless.com",
-      role: "admin"
-    };
-    localStorage.setItem("ql_token", "admin_mock_token");
-    setUser(adminUser);
-    return adminUser;
+  const loginAsAdmin = async () => {
+    return await login('admin@queueless.com', 'password123');
   };
 
   const register = async (data, role) => {

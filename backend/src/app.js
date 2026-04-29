@@ -12,10 +12,18 @@ app.use(express.json());
 const authRoutes = require('./routes/auth.routes');
 const menuVendorRoutes = require('./routes/menu.routes');
 const menuPublicRoutes = require('./routes/menu.public.routes');
+const orderRoutes = require('./routes/order.routes');
+const vendorRoutes = require('./routes/vendor.routes');
+const vendorPublicRoutes = require('./routes/vendor.public.routes');
+const adminRoutes = require('./routes/admin.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/vendor/menu', menuVendorRoutes);
 app.use('/api/menus', menuPublicRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/vendor', vendorRoutes);
+app.use('/api/vendors', vendorPublicRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Catch undefined routes
 app.use((req, res, next) => {

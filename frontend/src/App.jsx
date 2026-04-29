@@ -21,6 +21,7 @@ import LogoutPage from './pages/admin/LogoutPage';
 import VendorDashboard from './pages/vendor/VendorDashboard';
 import VendorMenuPage from './pages/vendor/VendorMenuPage';
 import CreateMenuPage from './pages/vendor/CreateMenuPage';
+import CartPage from './pages/CartPage';
 
 function ProtectedRoute({ children, roleRequired }) {
   const { user, isAuthenticated } = useAuth();
@@ -47,7 +48,9 @@ export default function App() {
               {/* Public Routes */}
               <Route path="/" element={<LandingPage />} />
               <Route path="/menu" element={<MenuPage />} />
+              <Route path="/cart" element={<CartPage />} />
               <Route path="/order-status" element={<OrderStatusPage />} />
+              <Route path="/order-status/:id" element={<OrderStatusPage />} />
               
               {/* Auth Routes */}
               <Route path="/auth" element={<LoginPage />} />

@@ -11,6 +11,8 @@ const menuSchema = z.object({
     name: z.string().min(1, 'Name is required'),
     price: z.union([z.string(), z.number()]).transform(val => Number(val)),
     category: z.string().min(1, 'Category is required'),
+    description: z.string().optional(),
+    prepTime: z.number().int().optional(),
   })
 });
 

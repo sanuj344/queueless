@@ -11,11 +11,31 @@ const registerSchema = z.object({
     email: z.string().email('Invalid email format'),
     mobile: z.string().regex(/^\d{10}$/, 'Mobile must be exactly 10 digits'),
     password: z.string().min(6, 'Password must be at least 6 characters'),
-    outletName: z.string().optional(),
-    address: z.string().optional(),
     role: z.enum(['customer', 'vendor'], {
       errorMap: () => ({ message: 'Role must be customer or vendor' })
     }),
+    // Vendor specific fields
+    outletName: z.string().optional(),
+    address: z.string().optional(),
+    averagePrepTime: z.number().int().optional(),
+    accountNumber: z.string().optional(),
+    ifscCode: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, 'Invalid IFSC format').optional(),
+    accountHolderName: z.string().optional(),
+  }).refine((data) => {
+    if (data.role === 'vendor') {
+      return (
+        !!data.outletName && 
+        !!data.address && 
+        data.averagePrepTime !== undefined && 
+        !!data.accountNumber && 
+        !!data.ifscCode && 
+        !!data.accountHolderName
+      );
+    }
+    return true;
+  }, {
+    message: "All vendor fields (Outlet, Address, Prep Time, Bank Details) are required",
+    path: ["role"]
   }),
 });
 

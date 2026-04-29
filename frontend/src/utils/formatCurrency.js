@@ -22,12 +22,12 @@ export function calcSubtotal(items) {
 }
 
 /**
- * Calculate platform fee (5%)
+ * Calculate platform fee (Fixed ₹2)
  * @param {number} subtotal
  * @returns {number}
  */
 export function calcFee(subtotal) {
-  return Math.round(subtotal * 0.05);
+  return subtotal > 0 ? 2 : 0;
 }
 
 /**

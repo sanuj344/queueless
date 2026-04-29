@@ -9,12 +9,14 @@ const getVendorMenu = async (vendorId) => {
 };
 
 const createMenuItem = async (vendorId, data) => {
-  const { name, price, category } = data;
+  const { name, price, category, description, prepTime } = data;
   return await prisma.menuItem.create({
     data: {
       name,
       price: parseFloat(price),
       category,
+      description: description || "",
+      prepTime: prepTime ? parseInt(prepTime) : 10,
       vendorId,
     },
   });
@@ -31,6 +33,8 @@ const updateMenuItem = async (vendorId, itemId, data) => {
       name: data.name,
       price: data.price ? parseFloat(data.price) : undefined,
       category: data.category,
+      description: data.description,
+      prepTime: data.prepTime ? parseInt(data.prepTime) : undefined,
     },
   });
 };
