@@ -9,6 +9,15 @@ import OrderStatusPage from './pages/OrderStatusPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import VendorsPage from './pages/admin/VendorsPage';
+import OrdersPage from './pages/admin/OrdersPage';
+import CustomersPage from './pages/admin/CustomersPage';
+import PaymentsPage from './pages/admin/PaymentsPage';
+import CommissionPage from './pages/admin/CommissionPage';
+import ReportsPage from './pages/admin/ReportsPage';
+import ComplaintsPage from './pages/admin/ComplaintsPage';
+import SettingsPage from './pages/admin/SettingsPage';
+import LogoutPage from './pages/admin/LogoutPage';
 import VendorDashboard from './pages/vendor/VendorDashboard';
 import VendorMenuPage from './pages/vendor/VendorMenuPage';
 import CreateMenuPage from './pages/vendor/CreateMenuPage';
@@ -53,6 +62,71 @@ export default function App() {
                   </ProtectedRoute>
                 } 
               />
+              <Route 
+                path="/admin/vendors" 
+                element={
+                  <ProtectedRoute roleRequired="admin">
+                    <VendorsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin/orders" 
+                element={
+                  <ProtectedRoute roleRequired="admin">
+                    <OrdersPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin/customers" 
+                element={
+                  <ProtectedRoute roleRequired="admin">
+                    <CustomersPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin/payments" 
+                element={
+                  <ProtectedRoute roleRequired="admin">
+                    <PaymentsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin/commission" 
+                element={
+                  <ProtectedRoute roleRequired="admin">
+                    <CommissionPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin/reports" 
+                element={
+                  <ProtectedRoute roleRequired="admin">
+                    <ReportsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin/complaints" 
+                element={
+                  <ProtectedRoute roleRequired="admin">
+                    <ComplaintsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin/settings" 
+                element={
+                  <ProtectedRoute roleRequired="admin">
+                    <SettingsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route path="/admin/logout" element={<LogoutPage />} />
               <Route 
                 path="/vendor/dashboard" 
                 element={

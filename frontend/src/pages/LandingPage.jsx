@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom';
 import { features, vendorSteps } from '../data/mockData';
+import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 import Card from '../components/Card';
 
 export default function LandingPage() {
+  const { user } = useAuth();
   return (
     <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-white overflow-x-hidden transition-colors duration-300">
 
@@ -35,16 +37,34 @@ export default function LandingPage() {
 
         {/* CTAs */}
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-          <Link to="/menu" className="w-full sm:w-auto">
-            <Button size="xl" fullWidth>
-              Get Started Now →
-            </Button>
-          </Link>
-          <Link to="/auth/register?vendor=true" className="w-full sm:w-auto">
-            <Button variant="secondary" size="xl" fullWidth>
-              Vendor Onboarding
-            </Button>
-          </Link>
+          {user?.role === 'admin' ? (
+            <Link to="/admin/dashboard" className="w-full sm:w-auto">
+              <Button size="xl" fullWidth>
+                Go to Dashboard →
+              </Button>
+            </Link>
+          ) : user?.role === 'vendor' ? (
+            <Link to="/vendor/dashboard" className="w-full sm:w-auto">
+              <Button size="xl" fullWidth>
+                Go to Dashboard →
+              </Button>
+            </Link>
+          ) : (
+            <>
+              <Link to="/menu" className="w-full sm:w-auto">
+                <Button size="xl" fullWidth>
+                  Get Started Now →
+                </Button>
+              </Link>
+              {!user && (
+                <Link to="/auth/register?vendor=true" className="w-full sm:w-auto">
+                  <Button variant="secondary" size="xl" fullWidth>
+                    Vendor Onboarding
+                  </Button>
+                </Link>
+              )}
+            </>
+          )}
         </div>
 
         {/* Scroll hint */}
@@ -105,9 +125,11 @@ export default function LandingPage() {
                 No technical know-how required. Set up your outlet, generate
                 your QR, and start taking orders within the hour.
               </p>
-              <Link to="/menu">
-                <Button size="lg">See Live Demo →</Button>
-              </Link>
+              {user?.role !== 'vendor' && user?.role !== 'admin' && (
+                <Link to="/menu">
+                  <Button size="lg">See Live Demo →</Button>
+                </Link>
+              )}
             </div>
 
             {/* Right steps */}
@@ -146,11 +168,13 @@ export default function LandingPage() {
             Join thousands of restaurants already using QueueLess to serve
             faster and smarter.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center relative">
-            <Link to="/menu">
-              <Button size="xl">Try It Now — Free</Button>
-            </Link>
-          </div>
+          {user?.role !== 'vendor' && user?.role !== 'admin' && (
+            <div className="flex flex-col sm:flex-row gap-4 justify-center relative">
+              <Link to="/menu">
+                <Button size="xl">Try It Now — Free</Button>
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 

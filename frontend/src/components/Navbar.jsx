@@ -9,6 +9,11 @@ export default function Navbar() {
   const location = useLocation();
   const isMenuPage = location.pathname === '/menu';
 
+  // Do not show navbar on admin pages as they have their own sidebar
+  if (location.pathname.startsWith('/admin')) {
+    return null;
+  }
+
   const getDashboardLink = () => {
     if (!user) return '/';
     if (user.role === 'admin') return '/admin/dashboard';
@@ -31,58 +36,62 @@ export default function Navbar() {
           </Link>
 
           {/* Nav Links — desktop */}
-          <div className="hidden md:flex items-center gap-6">
-            <Link
-              to="/"
-              className={`text-sm font-medium transition-colors ${
-                location.pathname === '/'
-                  ? 'text-[#8cb800] dark:text-[#d4ff00]'
-                  : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-              }`}
-            >
-              Home
-            </Link>
-            <Link
-              to={user?.role === 'vendor' ? '/vendor/menu' : '/menu'}
-              className={`text-sm font-medium transition-colors ${
-                location.pathname === '/menu' || location.pathname === '/vendor/menu'
-                  ? 'text-[#8cb800] dark:text-[#d4ff00]'
-                  : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-              }`}
-            >
-              Menu
-            </Link>
-            {user?.role !== 'vendor' && (
+          {user && (
+            <div className="hidden md:flex items-center gap-6">
               <Link
-                to="/order-status"
+                to="/"
                 className={`text-sm font-medium transition-colors ${
-                  location.pathname === '/order-status'
+                  location.pathname === '/'
                     ? 'text-[#8cb800] dark:text-[#d4ff00]'
                     : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
                 }`}
               >
-                Your Order
+                Home
               </Link>
-            )}
-            {isAuthenticated && (
-              <Link
-                to={getDashboardLink()}
-                className={`text-sm font-medium transition-colors ${
-                  location.pathname.includes('dashboard')
-                    ? 'text-[#8cb800] dark:text-[#d4ff00]'
-                    : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                }`}
-              >
-                Dashboard
-              </Link>
-            )}
-          </div>
+              {user?.role !== 'admin' && (
+                <Link
+                  to={user?.role === 'vendor' ? '/vendor/menu' : '/menu'}
+                  className={`text-sm font-medium transition-colors ${
+                    location.pathname === '/menu' || location.pathname === '/vendor/menu'
+                      ? 'text-[#8cb800] dark:text-[#d4ff00]'
+                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                  }`}
+                >
+                  Menu
+                </Link>
+              )}
+              {user?.role !== 'vendor' && user?.role !== 'admin' && (
+                <Link
+                  to="/order-status"
+                  className={`text-sm font-medium transition-colors ${
+                    location.pathname === '/order-status'
+                      ? 'text-[#8cb800] dark:text-[#d4ff00]'
+                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                  }`}
+                >
+                  Your Order
+                </Link>
+              )}
+              {isAuthenticated && user?.role !== 'customer' && (
+                <Link
+                  to={getDashboardLink()}
+                  className={`text-sm font-medium transition-colors ${
+                    location.pathname.includes('dashboard')
+                      ? 'text-[#8cb800] dark:text-[#d4ff00]'
+                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                  }`}
+                >
+                  Dashboard
+                </Link>
+              )}
+            </div>
+          )}
 
           {/* Right actions */}
           <div className="flex items-center gap-3">
             <ThemeToggle />
 
-            {isMenuPage && (
+            {user && isMenuPage && (
               <button
                 onClick={openCart}
                 className="relative flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-500 text-zinc-900 dark:text-white px-3 py-2 rounded-xl text-sm font-medium transition-all"

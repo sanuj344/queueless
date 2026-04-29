@@ -6,12 +6,17 @@ import Card from '../../components/Card';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, loginAsAdmin } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const handleAdminLogin = () => {
+    loginAsAdmin();
+    navigate('/admin/dashboard');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -90,6 +95,17 @@ export default function LoginPage() {
                 'Sign in'
               )}
             </Button>
+
+            <div className="pt-2">
+              <Button 
+                variant="outline" 
+                fullWidth 
+                onClick={handleAdminLogin}
+                className="border-[#8cb800] dark:border-[#d4ff00] text-[#8cb800] dark:text-[#d4ff00] hover:bg-[#8cb800]/10 dark:hover:bg-[#d4ff00]/10"
+              >
+                Login as Admin
+              </Button>
+            </div>
           </form>
 
           <div className="mt-6 text-center text-sm">
