@@ -7,7 +7,6 @@ datasource db {
 }
 
 enum Role {
-  customer
   vendor
   admin
 }
@@ -27,9 +26,17 @@ model User {
   isApproved        Boolean  @default(false)
   hasGst            Boolean  @default(false)
   gstNumber         String?
-  role              Role     @default(customer)
+  role              Role     @default(vendor)
   createdAt         DateTime @default(now())
   menuItems         MenuItem[]
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String   @unique
+  createdAt DateTime @default(now())
+  orders    Order[]
 }
 
 model MenuItem {
@@ -45,12 +52,14 @@ model MenuItem {
 }
 
 model Order {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   customerName  String
   customerPhone String
+  customerId    String?
+  customer      Customer? @relation(fields: [customerId], references: [id])
   vendorId      String
   items         Json
   totalAmount   Float
-  status        String   @default("pending") // pending, accepted, preparing, ready, completed
-  createdAt     DateTime @default(now())
+  status        String    @default("pending")
+  createdAt     DateTime  @default(now())
 }

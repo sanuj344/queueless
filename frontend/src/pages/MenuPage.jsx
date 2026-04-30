@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { formatCurrency } from '../utils/formatCurrency';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import Badge from '../components/Badge';
 import Button from '../components/Button';
 import QuantityStepper from '../components/QuantityStepper';
@@ -20,7 +21,6 @@ function MenuItem({ item }) {
           <div className="w-2 h-2 rounded-full bg-emerald-500" />
         </div>
       </div>
-
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
           <h3 className="font-semibold text-zinc-900 dark:text-white text-sm sm:text-base">{item.name}</h3>
@@ -28,22 +28,13 @@ function MenuItem({ item }) {
             {item.prepTime || 10} min
           </span>
         </div>
-        <p className="text-xs text-zinc-500 leading-relaxed line-clamp-2 mb-2">
-          {item.description || item.category}
-        </p>
+        <p className="text-xs text-zinc-500 leading-relaxed line-clamp-2 mb-2">{item.description || item.category}</p>
         <div className="flex items-center justify-between flex-wrap gap-3">
           <span className="text-zinc-900 dark:text-white font-bold">{formatCurrency(item.price)}</span>
-
           {qty === 0 ? (
-            <Button size="sm" onClick={() => addItem(item)} className="shrink-0">
-              + Add
-            </Button>
+            <Button size="sm" onClick={() => addItem(item)} className="shrink-0">+ Add</Button>
           ) : (
-            <QuantityStepper
-              quantity={qty}
-              onIncrement={() => increment(item.id)}
-              onDecrement={() => decrement(item.id)}
-            />
+            <QuantityStepper quantity={qty} onIncrement={() => increment(item.id)} onDecrement={() => decrement(item.id)} />
           )}
         </div>
       </div>
@@ -55,39 +46,50 @@ export default function MenuPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const vendorIdFromQuery = searchParams.get('vendorId');
-  
+  const { setActiveVendorId } = useAuth();
+
   const [items, setItems] = useState([]);
   const [vendorData, setVendorData] = useState({ name: 'Vendor', cuisine: 'Local Store', waitTime: 15, rating: 4.8, reviews: 100 });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  
   const [activeCategory, setActiveCategory] = useState('All');
-  const { itemCount, total } = useCart();
+  const { itemCount, total, items: cartItems, clearCart } = useCart();
+
+  // Persist vendorId so Navbar Menu link always works
+  useEffect(() => {
+    if (vendorIdFromQuery) setActiveVendorId(vendorIdFromQuery);
+    
+    // Safety check: if cart has items from a different vendor, clear it to prevent order mismatch
+    if (cartItems && cartItems.length > 0 && vendorIdFromQuery) {
+      const cartVendorId = cartItems[0]?.vendorId;
+      if (cartVendorId && cartVendorId !== vendorIdFromQuery) {
+        clearCart();
+      }
+    }
+  }, [vendorIdFromQuery, setActiveVendorId, cartItems, clearCart]);
 
   useEffect(() => {
     if (!vendorIdFromQuery) {
-      setError('No vendor selected. Please scan a valid store QR code.');
+      setError('No vendor selected. Please scan a valid QR code.');
       setIsLoading(false);
       return;
     }
-
     const fetchData = async () => {
       try {
         const [menuRes, vendorRes] = await Promise.all([
           api.get(`/menus/${vendorIdFromQuery}`),
           api.get(`/vendors/${vendorIdFromQuery}`)
         ]);
-        
         setItems(menuRes.data.data);
         setVendorData({
           name: vendorRes.data.data.outletName || vendorRes.data.data.name,
-          cuisine: vendorRes.data.data.address.split('\n')[0],
+          cuisine: vendorRes.data.data.address?.split('\n')[0] || '',
           waitTime: vendorRes.data.data.averagePrepTime || 15,
           rating: 4.8,
           reviews: 124
         });
-      } catch (err) {
-        setError('Failed to fetch the menu or store details.');
+      } catch {
+        setError('Failed to fetch menu or store details.');
       } finally {
         setIsLoading(false);
       }
@@ -95,26 +97,27 @@ export default function MenuPage() {
     fetchData();
   }, [vendorIdFromQuery]);
 
-  const categories = ['All', ...new Set(items.map((i) => i.category))];
-
-  const filtered =
-    activeCategory === 'All'
-      ? items
-      : items.filter((i) => i.category === activeCategory);
-
   if (isLoading) return (
     <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
       <Spinner size="lg" />
     </div>
   );
 
-  if (error) return (
+  if (error || !vendorIdFromQuery) return (
     <div className="min-h-screen bg-white dark:bg-black pt-28 px-4 flex flex-col items-center text-center">
       <div className="w-20 h-20 bg-zinc-100 dark:bg-zinc-900 rounded-full flex items-center justify-center text-3xl mb-6">🏪</div>
       <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Vendor not found</h2>
-      <p className="text-zinc-500 dark:text-zinc-400 mt-2">{error}</p>
+      <p className="text-zinc-500 dark:text-zinc-400 mt-2 max-w-xs leading-relaxed">
+        {error || 'No vendor selected. Please scan a valid store QR code.'}
+      </p>
+      <Link to="/" className="mt-8">
+        <Button variant="outline" size="lg">Return Home</Button>
+      </Link>
     </div>
   );
+
+  const categories = ['All', ...new Set((items || []).map((i) => i.category))];
+  const filtered = activeCategory === 'All' ? (items || []) : (items || []).filter((i) => i.category === activeCategory);
 
   return (
     <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-white pb-32 sm:pb-24 transition-colors duration-300">

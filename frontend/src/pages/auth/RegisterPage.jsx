@@ -9,7 +9,7 @@ export default function RegisterPage() {
   const [searchParams] = useSearchParams();
   const { register } = useAuth();
   
-  const [role, setRole] = useState(searchParams.get('vendor') === 'true' ? 'vendor' : 'customer');
+  const [role, setRole] = useState('vendor');
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     name: '',
@@ -113,7 +113,7 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-white dark:bg-black flex flex-col justify-center py-12 sm:px-6 lg:px-8 transition-colors duration-300">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <h2 className="mt-6 text-center text-3xl font-extrabold text-zinc-900 dark:text-white">
-          {role === 'vendor' ? `Vendor Onboarding - Step ${step}` : 'Create customer account'}
+          Vendor Onboarding{role === 'vendor' ? ` — Step ${step}` : ''}
         </h2>
         {role === 'vendor' && (
           <div className="mt-4 flex justify-center gap-2">
@@ -247,36 +247,6 @@ export default function RegisterPage() {
                       )}
                     </div>
                   </>
-                )}
-
-                {!searchParams.get('vendor') && (
-                  <div>
-                    <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-400 mb-2">Registering as</label>
-                    <div className="flex gap-4">
-                      <label className="flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 cursor-pointer transition-all has-[:checked]:border-[#d4ff00] has-[:checked]:bg-[#d4ff00]/5">
-                        <input
-                          type="radio"
-                          name="role"
-                          value="customer"
-                          checked={role === 'customer'}
-                          onChange={() => setRole('customer')}
-                          className="accent-[#d4ff00]"
-                        />
-                        <span className="text-sm font-medium">Customer</span>
-                      </label>
-                      <label className="flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 cursor-pointer transition-all has-[:checked]:border-[#d4ff00] has-[:checked]:bg-[#d4ff00]/5">
-                        <input
-                          type="radio"
-                          name="role"
-                          value="vendor"
-                          checked={role === 'vendor'}
-                          onChange={() => setRole('vendor')}
-                          className="accent-[#d4ff00]"
-                        />
-                        <span className="text-sm font-medium">Vendor</span>
-                      </label>
-                    </div>
-                  </div>
                 )}
 
                 <div>

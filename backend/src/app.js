@@ -16,6 +16,7 @@ const orderRoutes = require('./routes/order.routes');
 const vendorRoutes = require('./routes/vendor.routes');
 const vendorPublicRoutes = require('./routes/vendor.public.routes');
 const adminRoutes = require('./routes/admin.routes');
+const customerRoutes = require('./routes/customer.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/vendor/menu', menuVendorRoutes);
@@ -24,6 +25,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/vendor', vendorRoutes);
 app.use('/api/vendors', vendorPublicRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/customer', customerRoutes);
 
 // Catch undefined routes
 app.use((req, res, next) => {

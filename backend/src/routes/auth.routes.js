@@ -11,8 +11,8 @@ const registerSchema = z.object({
     email: z.string().email('Invalid email format'),
     mobile: z.string().regex(/^\d{10}$/, 'Mobile must be exactly 10 digits'),
     password: z.string().min(6, 'Password must be at least 6 characters'),
-    role: z.enum(['customer', 'vendor'], {
-      errorMap: () => ({ message: 'Role must be customer or vendor' })
+    role: z.enum(['vendor'], {
+      errorMap: () => ({ message: 'Only vendor registration is supported' })
     }),
     // Vendor specific fields
     outletName: z.string().optional(),

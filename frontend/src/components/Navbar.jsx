@@ -1,133 +1,83 @@
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import ThemeToggle from './ThemeToggle';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
-  const navigate = useNavigate();
   const { itemCount, openCart } = useCart();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { customer, user, isAuthenticated, logout, role, activeVendorId } = useAuth();
   const location = useLocation();
-  const isMenuPage = location.pathname === '/menu';
+  const navigate = useNavigate();
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  // Do not show navbar on admin pages as they have their own sidebar
-  if (location.pathname.startsWith('/admin')) {
-    return null;
-  }
+  useEffect(() => {
+    const handleClickOutside = () => setIsDropdownOpen(false);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
 
-  const getDashboardLink = () => {
-    if (!user) return '/';
-    if (user.role === 'admin') return '/admin/dashboard';
-    if (user.role === 'vendor') return '/vendor/dashboard';
-    return '/menu';
-  };
+  // Admin pages have their own sidebar
+  if (location.pathname.startsWith('/admin')) return null;
+
+  const menuLink = activeVendorId ? `/menu?vendorId=${activeVendorId}` : '/menu';
+
+  const navLinkClass = (active) =>
+    `text-sm font-bold transition-colors ${
+      active ? 'text-[#d4ff00]' : 'text-zinc-400 hover:text-white'
+    }`;
 
   return (
     <header className="fixed top-0 inset-x-0 z-40">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <nav className="mt-4 flex items-center justify-between rounded-2xl border border-zinc-200 dark:border-white/10 bg-white/80 dark:bg-black/60 backdrop-blur-xl px-4 sm:px-6 py-3 shadow-xl shadow-black/5 dark:shadow-black/40 transition-colors duration-300">
+
           {/* Logo */}
           <Link to="/" className="flex items-center gap-1 select-none">
-            <span className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">
-              Queue
-            </span>
-            <span className="text-xl font-black tracking-tight text-[#d4ff00] drop-shadow-[0_0_2px_rgba(212,255,0,0.5)] dark:drop-shadow-none">
-              Less
-            </span>
+            <span className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">Queue</span>
+            <span className="text-xl font-black tracking-tight text-[#d4ff00] drop-shadow-[0_0_2px_rgba(212,255,0,0.5)] dark:drop-shadow-none">Less</span>
           </Link>
 
-          {/* Nav Links — desktop */}
-          {user && (
-            <div className="hidden md:flex items-center gap-6">
-              {/* Customer Specific */}
-              {user.role === 'customer' && (
-                <>
-                  <Link
-                    to="/"
-                    className={`text-sm font-medium transition-colors ${
-                      location.pathname === '/'
-                        ? 'text-[#8cb800] dark:text-[#d4ff00]'
-                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                    }`}
-                  >
-                    Home
-                  </Link>
-                  <Link
-                    to="/menu"
-                    className={`text-sm font-medium transition-colors ${
-                      location.pathname === '/menu'
-                        ? 'text-[#8cb800] dark:text-[#d4ff00]'
-                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                    }`}
-                  >
-                    Menu
-                  </Link>
-                  <Link
-                    to="/order-status"
-                    className={`text-sm font-medium transition-colors ${
-                      location.pathname.startsWith('/order-status')
-                        ? 'text-[#8cb800] dark:text-[#d4ff00]'
-                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                    }`}
-                  >
-                    Your Order
-                  </Link>
-                </>
-              )}
-
-              {/* Vendor Specific */}
-              {user.role === 'vendor' && (
-                <>
-                  <Link
-                    to="/vendor/dashboard"
-                    className={`text-sm font-medium transition-colors ${
-                      location.pathname.includes('dashboard')
-                        ? 'text-[#8cb800] dark:text-[#d4ff00]'
-                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                    }`}
-                  >
-                    Dashboard
-                  </Link>
-                  <Link
-                    to="/vendor/menu"
-                    className={`text-sm font-medium transition-colors ${
-                      location.pathname === '/vendor/menu'
-                        ? 'text-[#8cb800] dark:text-[#d4ff00]'
-                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                    }`}
-                  >
-                    Manage Menu
-                  </Link>
-                </>
-              )}
-
-              {/* Admin Specific */}
-              {user.role === 'admin' && (
-                <Link
-                  to="/admin/dashboard"
-                  className={`text-sm font-medium transition-colors ${
-                    location.pathname.includes('dashboard')
-                      ? 'text-[#8cb800] dark:text-[#d4ff00]'
-                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                  }`}
+          {/* Nav Links — desktop (role priority: customer > vendor > admin > guest) */}
+          <div className="hidden md:flex items-center gap-6">
+            {customer ? (
+              <>
+                <Link to="/" className={navLinkClass(location.pathname === '/')}>Home</Link>
+                <Link to={menuLink} className={navLinkClass(location.pathname === '/menu')}>Menu</Link>
+                <button 
+                  onClick={() => {
+                    const lastOrderId = localStorage.getItem('ql_last_order_id');
+                    navigate(lastOrderId ? `/order-status/${lastOrderId}` : '/order-status');
+                  }} 
+                  className={navLinkClass(location.pathname.startsWith('/order-status'))}
                 >
-                  Dashboard
-                </Link>
-              )}
-            </div>
-          )}
+                  Your Order
+                </button>
+              </>
+            ) : role === 'vendor' ? (
+              <>
+                <Link to="/vendor/dashboard" className={navLinkClass(location.pathname.includes('/vendor/dashboard'))}>Dashboard</Link>
+                <Link to="/vendor/menu" className={navLinkClass(location.pathname === '/vendor/menu')}>Manage Menu</Link>
+              </>
+            ) : role === 'admin' ? (
+              <Link to="/admin/dashboard" className={navLinkClass(location.pathname.includes('dashboard'))}>Dashboard</Link>
+            ) : (
+              <Link to="/" className={navLinkClass(location.pathname === '/')}>Home</Link>
+            )}
+          </div>
 
           {/* Right actions */}
           <div className="flex items-center gap-3">
             <ThemeToggle />
 
-            {user && itemCount > 0 && (
+            {/* Cart button — always visible when items exist */}
+            {itemCount > 0 && (
               <button
-                onClick={() => navigate('/cart')}
-                className="relative flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-500 text-zinc-900 dark:text-white px-3 py-2 rounded-xl text-sm font-medium transition-all"
+                onClick={openCart}
+                className="relative flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white px-3 py-2 rounded-xl text-sm font-medium transition-all group"
                 aria-label="Open cart"
               >
-                <span>🛒</span>
+                <span className="group-hover:scale-110 transition-transform">🛒</span>
                 <span className="flex items-center gap-1">
                   <span className="text-zinc-400">·</span>
                   <span className="text-[#8cb800] dark:text-[#d4ff00] font-bold">{itemCount}</span>
@@ -135,7 +85,60 @@ export default function Navbar() {
               </button>
             )}
 
-            {isAuthenticated ? (
+            {/* Customer: profile avatar + dropdown + logout button */}
+            {customer ? (
+              <div className="flex items-center gap-2 ml-1">
+                {/* Avatar with dropdown */}
+                <div className="relative">
+                  <div 
+                    onClick={(e) => { e.stopPropagation(); setIsDropdownOpen(!isDropdownOpen); }}
+                    className="w-10 h-10 rounded-full bg-[#d4ff00] text-black font-black flex items-center justify-center cursor-pointer shadow-[0_0_20px_rgba(212,255,0,0.3)] hover:scale-105 transition-all select-none"
+                  >
+                    {customer.name?.charAt(0).toUpperCase()}
+                  </div>
+                  {isDropdownOpen && (
+                    <div 
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute right-0 mt-3 w-56 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-50"
+                    >
+                    <div className="p-4 border-b border-zinc-100 dark:border-zinc-800">
+                      <p className="text-xs font-black text-[#8cb800] dark:text-[#d4ff00] uppercase tracking-widest mb-1">Guest Session</p>
+                      <p className="font-bold text-zinc-900 dark:text-white truncate">{customer.name}</p>
+                      <p className="text-xs text-zinc-500 font-mono mt-0.5">{customer.phone}</p>
+                    </div>
+                    <Link
+                      to="/customer/orders"
+                      className="block px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      📋 View All Orders
+                    </Link>
+                    <button
+                      onClick={() => {
+                        localStorage.removeItem('ql_customer');
+                        localStorage.removeItem('ql_last_order_id');
+                        window.location.href = '/';
+                      }}
+                      className="w-full text-left px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors border-t border-zinc-100 dark:border-zinc-800"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                  )}
+                </div>
+
+                {/* Dedicated logout button */}
+                <button
+                  onClick={() => {
+                    localStorage.removeItem('ql_customer');
+                    localStorage.removeItem('ql_last_order_id');
+                    window.location.href = '/';
+                  }}
+                  className="hidden sm:flex px-3 py-2 bg-red-500 text-white text-xs font-bold rounded-xl hover:bg-red-600 transition-colors"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : isAuthenticated ? (
               <button
                 onClick={logout}
                 className="hidden sm:inline-flex items-center px-4 py-2 bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-sm font-bold rounded-xl hover:bg-red-200 dark:hover:bg-red-500/20 transition-colors border border-red-200 dark:border-red-500/20"
@@ -147,7 +150,7 @@ export default function Navbar() {
                 to="/auth"
                 className="hidden sm:inline-flex items-center px-4 py-2 bg-[#d4ff00] text-black text-sm font-bold rounded-xl hover:bg-[#c0e600] transition-colors shadow-sm"
               >
-                Join Now
+                Business Login
               </Link>
             )}
           </div>

@@ -18,6 +18,7 @@ import ReportsPage from './pages/admin/ReportsPage';
 import ComplaintsPage from './pages/admin/ComplaintsPage';
 import SettingsPage from './pages/admin/SettingsPage';
 import LogoutPage from './pages/admin/LogoutPage';
+import CustomerOrdersPage from './pages/customer/CustomerOrdersPage';
 import VendorDashboard from './pages/vendor/VendorDashboard';
 import VendorMenuPage from './pages/vendor/VendorMenuPage';
 import CreateMenuPage from './pages/vendor/CreateMenuPage';
@@ -51,6 +52,7 @@ export default function App() {
               <Route path="/cart" element={<CartPage />} />
               <Route path="/order-status" element={<OrderStatusPage />} />
               <Route path="/order-status/:id" element={<OrderStatusPage />} />
+              <Route path="/customer/orders" element={<CustomerOrdersPage />} />
               
               {/* Auth Routes */}
               <Route path="/auth" element={<LoginPage />} />

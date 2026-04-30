@@ -33,9 +33,9 @@ export default function LoginPage() {
 
     try {
       const user = await login(email, password);
-      if (user.role === 'customer') navigate('/menu');
-      else if (user.role === 'vendor') navigate('/vendor/dashboard');
+      if (user.role === 'vendor') navigate('/vendor/dashboard');
       else if (user.role === 'admin') navigate('/admin/dashboard');
+      else navigate('/');
     } catch (err) {
       setError(err.message);
     } finally {

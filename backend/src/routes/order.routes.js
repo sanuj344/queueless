@@ -4,15 +4,30 @@ const { protect, restrictTo } = require('../middlewares/auth.middleware');
 
 const router = express.Router();
 
-// Create Order (Public)
+// Create Order (Public — Guest Checkout)
 router.post('/', async (req, res, next) => {
   try {
     const { customerName, customerPhone, vendorId, items, totalAmount } = req.body;
-    
+
+    // Find or create customer by phone (persistent guest tracking)
+    let customer = await prisma.customer.findUnique({ where: { phone: customerPhone } });
+    if (!customer) {
+      customer = await prisma.customer.create({
+        data: { name: customerName, phone: customerPhone }
+      });
+    } else if (customer.name !== customerName) {
+      // Update name if customer is placing order with a different name
+      customer = await prisma.customer.update({
+        where: { phone: customerPhone },
+        data: { name: customerName }
+      });
+    }
+
     const order = await prisma.order.create({
       data: {
         customerName,
         customerPhone,
+        customerId: customer.id,
         vendorId,
         items,
         totalAmount: parseFloat(totalAmount),
