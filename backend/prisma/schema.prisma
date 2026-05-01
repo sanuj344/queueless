@@ -71,6 +71,8 @@ model Order {
   complaints    Complaint[]
   reviewGiven   Boolean     @default(false)
   reviews       Review[]
+  deliveryTime  String?     @default("ASAP")
+  expiresAt     DateTime?
 }
 
 model Complaint {

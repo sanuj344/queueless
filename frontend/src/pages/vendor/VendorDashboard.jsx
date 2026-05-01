@@ -67,6 +67,11 @@ export default function VendorDashboard() {
 
   const updateOrderStatus = async (id, newStatus) => {
     try {
+      const order = orders.find(o => o.id === id);
+      if (newStatus === 'accepted' && order?.expiresAt && new Date() > new Date(order.expiresAt)) {
+        alert('This order has expired.');
+        return;
+      }
       await api.patch(`/orders/${id}`, { status: newStatus });
       fetchOrders();
     } catch (err) {
@@ -246,6 +251,24 @@ export default function VendorDashboard() {
 // ─── Helpers ─── 
 
 function OrderCard({ order, children }) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    if (order.status !== 'pending' || !order.expiresAt) return;
+    const interval = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [order.status, order.expiresAt]);
+
+  const getRemainingSeconds = () => {
+    if (!order.expiresAt) return 0;
+    const diff = new Date(order.expiresAt).getTime() - now;
+    return Math.max(Math.floor(diff / 1000), 0);
+  };
+
+  const remainingSec = getRemainingSeconds();
+
   const statusColors = {
     pending: 'bg-yellow-500/10 text-yellow-500',
     accepted: 'bg-blue-500/10 text-blue-500',
@@ -270,6 +293,12 @@ function OrderCard({ order, children }) {
         <div className="text-right">
           <p className="text-sm font-black text-[#d4ff00]">{formatCurrency(order.totalAmount)}</p>
           <p className="text-[10px] text-zinc-500 mt-1">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+          <p className="text-[10px] text-zinc-500 mt-1 font-bold">⏱ Delivery: {order.deliveryTime || 'ASAP'}</p>
+          {order.status === 'pending' && (
+            <p className={`text-xs font-black mt-1 ${remainingSec > 30 ? 'text-[#d4ff00]' : 'text-red-500 animate-pulse'}`}>
+              ⏳ {remainingSec} sec left
+            </p>
+          )}
         </div>
       </div>
       

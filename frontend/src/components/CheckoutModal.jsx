@@ -20,6 +20,7 @@ export default function CheckoutModal() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showOTP, setShowOTP] = useState(false);
+  const [deliveryTime, setDeliveryTime] = useState('ASAP');
 
   // Pre-fill from existing customer session; always reset OTP state
   useEffect(() => {
@@ -57,6 +58,7 @@ export default function CheckoutModal() {
         vendorId,
         items: items.map(i => ({ id: i.id, name: i.name, quantity: i.quantity, price: i.price })),
         totalAmount: subtotal,
+        deliveryTime
       };
 
       const res = await api.post('/orders', payload);
@@ -118,6 +120,19 @@ export default function CheckoutModal() {
             onChange={(e) => setGuestInfo(prev => ({ ...prev, phone: e.target.value.replace(/\D/g, '') }))}
             className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#d4ff00] w-full transition-colors font-mono"
           />
+        </div>
+        <div className="space-y-1">
+          <label className="block text-[10px] uppercase font-black text-zinc-500 tracking-widest ml-1">Delivery Time</label>
+          <select
+            value={deliveryTime}
+            onChange={(e) => setDeliveryTime(e.target.value)}
+            className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#d4ff00] w-full transition-colors text-zinc-800 dark:text-zinc-200"
+          >
+            <option value="ASAP">ASAP (Immediate)</option>
+            <option value="10">10 mins</option>
+            <option value="20">20 mins</option>
+            <option value="30">30 mins</option>
+          </select>
         </div>
         <p className="text-[10px] text-zinc-400 italic">
           {customer ? '✓ Pre-filled from your session. OTP required for every order.' : 'Enter details to receive OTP verification.'}
