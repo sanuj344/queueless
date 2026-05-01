@@ -3,6 +3,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
+import ReviewModal from '../components/ReviewModal';
 
 const STATUS_STEPS = { pending: 1, accepted: 2, preparing: 3, ready: 4, completed: 5 };
 const STEPS_DATA = [
@@ -22,6 +23,7 @@ export default function OrderStatusPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [manualId, setManualId] = useState('');
+  const [showReviewModal, setShowReviewModal] = useState(false);
 
   // 1. Auto-redirect to last order if no ID provided in URL
   useEffect(() => {
@@ -122,6 +124,20 @@ export default function OrderStatusPage() {
           </div>
         </div>
 
+        {order.status === 'completed' && !order.reviewGiven && (
+          <div className="w-full max-w-md mb-6">
+            <Button
+              fullWidth
+              variant="default"
+              size="lg"
+              className="bg-[#d4ff00] text-black hover:bg-[#d4ff00]/90 font-black tracking-tight"
+              onClick={() => setShowReviewModal(true)}
+            >
+              ⭐ Leave a Review
+            </Button>
+          </div>
+        )}
+
         <div className="flex gap-3 w-full max-w-md">
           <Link to={`/menu?vendorId=${order.vendorId}`} className="flex-1">
             <Button variant="outline" fullWidth size="lg">Order More</Button>
@@ -130,6 +146,15 @@ export default function OrderStatusPage() {
             <Button fullWidth size="lg">Home</Button>
           </Link>
         </div>
+
+        <ReviewModal
+          isOpen={showReviewModal}
+          onClose={() => setShowReviewModal(false)}
+          order={order}
+          onReviewSubmitted={() => {
+            setOrder(prev => prev ? { ...prev, reviewGiven: true } : prev);
+          }}
+        />
       </div>
     );
   }

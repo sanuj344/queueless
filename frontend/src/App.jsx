@@ -1,8 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from './context/ThemeContext';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 import LandingPage from './pages/LandingPage';
 import MenuPage from './pages/MenuPage';
 import OrderStatusPage from './pages/OrderStatusPage';
@@ -19,6 +21,7 @@ import ComplaintsPage from './pages/admin/ComplaintsPage';
 import SettingsPage from './pages/admin/SettingsPage';
 import LogoutPage from './pages/admin/LogoutPage';
 import CustomerOrdersPage from './pages/customer/CustomerOrdersPage';
+import HelpDeskPage from './pages/HelpDeskPage';
 import VendorDashboard from './pages/vendor/VendorDashboard';
 import VendorMenuPage from './pages/vendor/VendorMenuPage';
 import CreateMenuPage from './pages/vendor/CreateMenuPage';
@@ -41,122 +44,129 @@ function ProtectedRoute({ children, roleRequired }) {
 export default function App() {
   return (
     <ThemeProvider>
+      <Toaster position="top-right" reverseOrder={false} />
       <AuthProvider>
         <CartProvider>
           <BrowserRouter>
-            <Navbar />
-            <Routes>
-              {/* Public Routes */}
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/menu" element={<MenuPage />} />
-              <Route path="/cart" element={<CartPage />} />
-              <Route path="/order-status" element={<OrderStatusPage />} />
-              <Route path="/order-status/:id" element={<OrderStatusPage />} />
-              <Route path="/customer/orders" element={<CustomerOrdersPage />} />
-              
-              {/* Auth Routes */}
-              <Route path="/auth" element={<LoginPage />} />
-              <Route path="/auth/register" element={<RegisterPage />} />
-              
-              {/* Protected Routes */}
-              <Route 
-                path="/admin/dashboard" 
-                element={
-                  <ProtectedRoute roleRequired="admin">
-                    <AdminDashboard />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/admin/vendors" 
-                element={
-                  <ProtectedRoute roleRequired="admin">
-                    <VendorsPage />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/admin/orders" 
-                element={
-                  <ProtectedRoute roleRequired="admin">
-                    <OrdersPage />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/admin/customers" 
-                element={
-                  <ProtectedRoute roleRequired="admin">
-                    <CustomersPage />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/admin/payments" 
-                element={
-                  <ProtectedRoute roleRequired="admin">
-                    <PaymentsPage />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/admin/commission" 
-                element={
-                  <ProtectedRoute roleRequired="admin">
-                    <CommissionPage />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/admin/reports" 
-                element={
-                  <ProtectedRoute roleRequired="admin">
-                    <ReportsPage />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/admin/complaints" 
-                element={
-                  <ProtectedRoute roleRequired="admin">
-                    <ComplaintsPage />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/admin/settings" 
-                element={
-                  <ProtectedRoute roleRequired="admin">
-                    <SettingsPage />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route path="/admin/logout" element={<LogoutPage />} />
-              <Route 
-                path="/vendor/dashboard" 
-                element={
-                  <ProtectedRoute roleRequired="vendor">
-                    <VendorDashboard />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/vendor/menu" 
-                element={
-                  <ProtectedRoute roleRequired="vendor">
-                    <VendorMenuPage />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/vendor/menu/create" 
-                element={
-                  <ProtectedRoute roleRequired="vendor">
-                    <CreateMenuPage />
-                  </ProtectedRoute>
-                } 
-              />
-            </Routes>
+            <div className="flex flex-col min-h-screen">
+              <Navbar />
+              <div className="flex-grow">
+                <Routes>
+                  {/* Public Routes */}
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/menu" element={<MenuPage />} />
+                  <Route path="/cart" element={<CartPage />} />
+                  <Route path="/order-status" element={<OrderStatusPage />} />
+                  <Route path="/order-status/:id" element={<OrderStatusPage />} />
+                  <Route path="/your-orders" element={<CustomerOrdersPage />} />
+                  <Route path="/help-desk" element={<HelpDeskPage />} />
+                  
+                  {/* Auth Routes */}
+                  <Route path="/auth" element={<LoginPage />} />
+                  <Route path="/auth/register" element={<RegisterPage />} />
+                  
+                  {/* Protected Routes */}
+                  <Route 
+                    path="/admin/dashboard" 
+                    element={
+                      <ProtectedRoute roleRequired="admin">
+                        <AdminDashboard />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin/vendors" 
+                    element={
+                      <ProtectedRoute roleRequired="admin">
+                        <VendorsPage />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin/orders" 
+                    element={
+                      <ProtectedRoute roleRequired="admin">
+                        <OrdersPage />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin/customers" 
+                    element={
+                      <ProtectedRoute roleRequired="admin">
+                        <CustomersPage />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin/payments" 
+                    element={
+                      <ProtectedRoute roleRequired="admin">
+                        <PaymentsPage />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin/commission" 
+                    element={
+                      <ProtectedRoute roleRequired="admin">
+                        <CommissionPage />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin/reports" 
+                    element={
+                      <ProtectedRoute roleRequired="admin">
+                        <ReportsPage />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin/complaints" 
+                    element={
+                      <ProtectedRoute roleRequired="admin">
+                        <ComplaintsPage />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin/settings" 
+                    element={
+                      <ProtectedRoute roleRequired="admin">
+                        <SettingsPage />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route path="/admin/logout" element={<LogoutPage />} />
+                  <Route 
+                    path="/vendor/dashboard" 
+                    element={
+                      <ProtectedRoute roleRequired="vendor">
+                        <VendorDashboard />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/vendor/menu" 
+                    element={
+                      <ProtectedRoute roleRequired="vendor">
+                        <VendorMenuPage />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/vendor/menu/create" 
+                    element={
+                      <ProtectedRoute roleRequired="vendor">
+                        <CreateMenuPage />
+                      </ProtectedRoute>
+                    } 
+                  />
+                </Routes>
+              </div>
+              <Footer />
+            </div>
           </BrowserRouter>
         </CartProvider>
       </AuthProvider>

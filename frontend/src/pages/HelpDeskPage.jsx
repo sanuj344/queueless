@@ -1,71 +1,70 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import api from '../../utils/api';
-import { useAuth } from '../../context/AuthContext';
-import Button from '../../components/Button';
-import Spinner from '../../components/Spinner';
+import { Link } from 'react-router-dom';
+import api from '../utils/api';
+import { useAuth } from '../context/AuthContext';
+import Button from '../components/Button';
+import Spinner from '../components/Spinner';
+import CustomerLoginModal from '../components/CustomerLoginModal';
+import ComplaintModal from '../components/ComplaintModal';
 
 const STATUS_STEPS = { pending: 1, accepted: 2, preparing: 3, ready: 4, completed: 5 };
 
-export default function CustomerOrdersPage() {
+export default function HelpDeskPage() {
   const { customer: authCustomer } = useAuth();
-  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showLogin, setShowLogin] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [isComplaintOpen, setIsComplaintOpen] = useState(false);
 
   useEffect(() => {
-    // Try both context and localStorage for maximum safety
     const customer = authCustomer || JSON.parse(localStorage.getItem('ql_customer'));
-
+    
     if (!customer?.phone) {
+      setShowLogin(true);
       setLoading(false);
       return;
     }
 
-    const fetchHistory = async () => {
+    const fetchOrders = async () => {
       try {
         const res = await api.get(`/customer/orders?phone=${customer.phone}`);
-        const orderData = res.data.data || [];
-        
-        // Sort: Active orders (not completed/cancelled) on top
-        const sorted = [...orderData].sort((a, b) => {
-          const aActive = a.status !== 'completed' && a.status !== 'cancelled';
-          const bActive = b.status !== 'completed' && b.status !== 'cancelled';
-          if (aActive && !bActive) return -1;
-          if (!aActive && bActive) return 1;
-          return new Date(b.createdAt) - new Date(a.createdAt);
-        });
-
-        setOrders(sorted);
+        setOrders(res.data.data || []);
       } catch (err) {
-        console.error("Error fetching orders:", err);
+        console.error('Error fetching orders:', err);
         setOrders([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchHistory();
+    fetchOrders();
   }, [authCustomer]);
+
+  const customer = authCustomer || JSON.parse(localStorage.getItem('ql_customer'));
 
   if (loading) {
     return (
       <div className="min-h-screen bg-white dark:bg-black pt-32 flex flex-col items-center gap-4">
         <Spinner />
-        <p className="text-zinc-500 text-sm font-medium animate-pulse">Fetching your orders...</p>
+        <p className="text-zinc-500 text-sm font-medium animate-pulse">Loading help desk...</p>
       </div>
     );
   }
-
-  const customer = authCustomer || JSON.parse(localStorage.getItem('ql_customer'));
 
   if (!customer) {
     return (
       <div className="min-h-screen bg-white dark:bg-black pt-32 px-4 flex flex-col items-center text-center">
         <div className="w-20 h-20 bg-zinc-100 dark:bg-zinc-900 rounded-full flex items-center justify-center text-3xl mb-6">🔒</div>
-        <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Login Required</h2>
-        <p className="text-zinc-500 mt-2 max-w-xs mx-auto">Please sign in as a customer from the navbar to view your order history.</p>
-        <Link to="/" className="mt-8"><Button>Back to Home</Button></Link>
+        <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Customer Session Required</h2>
+        <p className="text-zinc-500 mt-2 max-w-xs mx-auto">Please sign in as a customer from the navbar or click the button below to raise a complaint.</p>
+        <div className="mt-8 flex gap-3">
+          <Button onClick={() => setShowLogin(true)}>Sign in as Customer</Button>
+          <Link to="/">
+            <Button variant="outline">Home</Button>
+          </Link>
+        </div>
+        <CustomerLoginModal isOpen={showLogin} onClose={() => setShowLogin(false)} />
       </div>
     );
   }
@@ -75,8 +74,8 @@ export default function CustomerOrdersPage() {
       <div className="max-w-2xl mx-auto">
         <div className="mb-10 flex justify-between items-end">
           <div>
-            <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Your Orders</h1>
-            <p className="text-zinc-500 mt-2">History for <span className="font-mono text-[#8cb800] dark:text-[#d4ff00] font-bold">{customer.phone}</span></p>
+            <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Help Desk</h1>
+            <p className="text-zinc-500 mt-2">Select an order to raise a complaint for <span className="font-mono text-[#8cb800] dark:text-[#d4ff00] font-bold">{customer.phone}</span></p>
           </div>
           <Link to="/">
             <Button variant="outline" size="sm" className="rounded-xl">Home</Button>
@@ -85,9 +84,9 @@ export default function CustomerOrdersPage() {
 
         {orders.length === 0 ? (
           <div className="py-20 px-8 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-[2rem] flex flex-col items-center justify-center text-center bg-zinc-50/50 dark:bg-zinc-900/30">
-            <span className="text-4xl mb-4">🥡</span>
+            <span className="text-4xl mb-4">🥢</span>
             <h3 className="text-lg font-bold text-zinc-900 dark:text-white">No orders found</h3>
-            <p className="text-sm text-zinc-500 mt-1 max-w-[200px]">Looks like you haven't placed any orders yet.</p>
+            <p className="text-sm text-zinc-500 mt-1 max-w-[200px]">You need an active or past order to file a complaint.</p>
             <Link to="/menu" className="mt-6">
               <Button size="sm">Explore Menu</Button>
             </Link>
@@ -104,8 +103,7 @@ export default function CustomerOrdersPage() {
               return (
                 <div 
                   key={o.id} 
-                  onClick={() => navigate(`/order-status/${o.id}`)}
-                  className={`p-6 rounded-3xl border ${isActive ? 'border-[#d4ff00]/30 bg-[#d4ff00]/5 shadow-lg shadow-[#d4ff00]/5' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'} hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer group`}
+                  className={`p-6 rounded-3xl border ${isActive ? 'border-[#d4ff00]/30 bg-[#d4ff00]/5 shadow-lg shadow-[#d4ff00]/5' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'} transition-all`}
                 >
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -126,8 +124,17 @@ export default function CustomerOrdersPage() {
                         {new Date(o.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="flex flex-col items-end gap-2">
                       <p className="text-xl font-black text-zinc-900 dark:text-white">₹{o.totalAmount?.toFixed(0)}</p>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setSelectedOrder(o);
+                          setIsComplaintOpen(true);
+                        }}
+                      >
+                        Raise Complaint
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -136,6 +143,18 @@ export default function CustomerOrdersPage() {
           </div>
         )}
       </div>
+
+      {selectedOrder && (
+        <ComplaintModal
+          isOpen={isComplaintOpen}
+          onClose={() => {
+            setIsComplaintOpen(false);
+            setSelectedOrder(null);
+          }}
+          order={selectedOrder}
+          customerPhone={customer.phone}
+        />
+      )}
     </div>
   );
 }

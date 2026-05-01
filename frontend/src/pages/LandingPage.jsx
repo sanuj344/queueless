@@ -177,18 +177,6 @@ export default function LandingPage() {
           )}
         </div>
       </section>
-
-      {/* ─── FOOTER ─── */}
-      <footer className="border-t border-zinc-200 dark:border-zinc-900 py-8 px-4 sm:px-6">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="text-sm text-zinc-500 dark:text-zinc-600">
-            Queue<span className="text-[#8cb800] dark:text-[#d4ff00]">Less</span> — Skip the wait, not the experience.
-          </div>
-          <div className="text-xs text-zinc-400 dark:text-zinc-700">
-            © {new Date().getFullYear()} QueueLess. All rights reserved.
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

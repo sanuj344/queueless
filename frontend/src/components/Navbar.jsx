@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import ThemeToggle from './ThemeToggle';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import CustomerLoginModal from './CustomerLoginModal';
 
 export default function Navbar() {
   const { itemCount, openCart } = useCart();
@@ -10,6 +11,7 @@ export default function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [showCustomerLogin, setShowCustomerLogin] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = () => setIsDropdownOpen(false);
@@ -28,134 +30,149 @@ export default function Navbar() {
     }`;
 
   return (
-    <header className="fixed top-0 inset-x-0 z-40">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <nav className="mt-4 flex items-center justify-between rounded-2xl border border-zinc-200 dark:border-white/10 bg-white/80 dark:bg-black/60 backdrop-blur-xl px-4 sm:px-6 py-3 shadow-xl shadow-black/5 dark:shadow-black/40 transition-colors duration-300">
+    <>
+      <header className="fixed top-0 inset-x-0 z-40">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <nav className="mt-4 flex items-center justify-between rounded-2xl border border-zinc-200 dark:border-white/10 bg-white/80 dark:bg-black/60 backdrop-blur-xl px-4 sm:px-6 py-3 shadow-xl shadow-black/5 dark:shadow-black/40 transition-colors duration-300">
 
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-1 select-none">
-            <span className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">Queue</span>
-            <span className="text-xl font-black tracking-tight text-[#d4ff00] drop-shadow-[0_0_2px_rgba(212,255,0,0.5)] dark:drop-shadow-none">Less</span>
-          </Link>
+            {/* Logo */}
+            <Link to="/" className="flex items-center gap-1 select-none">
+              <span className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">Queue</span>
+              <span className="text-xl font-black tracking-tight text-[#d4ff00] drop-shadow-[0_0_2px_rgba(212,255,0,0.5)] dark:drop-shadow-none">Less</span>
+            </Link>
 
-          {/* Nav Links — desktop (role priority: customer > vendor > admin > guest) */}
-          <div className="hidden md:flex items-center gap-6">
-            {customer ? (
-              <>
-                <Link to="/" className={navLinkClass(location.pathname === '/')}>Home</Link>
-                <Link to={menuLink} className={navLinkClass(location.pathname === '/menu')}>Menu</Link>
-                <button 
-                  onClick={() => {
-                    const lastOrderId = localStorage.getItem('ql_last_order_id');
-                    navigate(lastOrderId ? `/order-status/${lastOrderId}` : '/order-status');
-                  }} 
-                  className={navLinkClass(location.pathname.startsWith('/order-status'))}
-                >
-                  Your Order
-                </button>
-              </>
-            ) : role === 'vendor' ? (
-              <>
-                <Link to="/vendor/dashboard" className={navLinkClass(location.pathname.includes('/vendor/dashboard'))}>Dashboard</Link>
-                <Link to="/vendor/menu" className={navLinkClass(location.pathname === '/vendor/menu')}>Manage Menu</Link>
-              </>
-            ) : role === 'admin' ? (
-              <Link to="/admin/dashboard" className={navLinkClass(location.pathname.includes('dashboard'))}>Dashboard</Link>
-            ) : (
-              <Link to="/" className={navLinkClass(location.pathname === '/')}>Home</Link>
-            )}
-          </div>
-
-          {/* Right actions */}
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-
-            {/* Cart button — always visible when items exist */}
-            {itemCount > 0 && (
-              <button
-                onClick={openCart}
-                className="relative flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white px-3 py-2 rounded-xl text-sm font-medium transition-all group"
-                aria-label="Open cart"
-              >
-                <span className="group-hover:scale-110 transition-transform">🛒</span>
-                <span className="flex items-center gap-1">
-                  <span className="text-zinc-400">·</span>
-                  <span className="text-[#8cb800] dark:text-[#d4ff00] font-bold">{itemCount}</span>
-                </span>
-              </button>
-            )}
-
-            {/* Customer: profile avatar + dropdown + logout button */}
-            {customer ? (
-              <div className="flex items-center gap-2 ml-1">
-                {/* Avatar with dropdown */}
-                <div className="relative">
-                  <div 
-                    onClick={(e) => { e.stopPropagation(); setIsDropdownOpen(!isDropdownOpen); }}
-                    className="w-10 h-10 rounded-full bg-[#d4ff00] text-black font-black flex items-center justify-center cursor-pointer shadow-[0_0_20px_rgba(212,255,0,0.3)] hover:scale-105 transition-all select-none"
+            {/* Nav Links — desktop (role priority: customer > vendor > admin > guest) */}
+            <div className="hidden md:flex items-center gap-6">
+              {customer ? (
+                <>
+                  <Link to="/" className={navLinkClass(location.pathname === '/')}>Home</Link>
+                  <Link to={menuLink} className={navLinkClass(location.pathname === '/menu')}>Menu</Link>
+                  <button 
+                    onClick={() => {
+                      const lastOrderId = localStorage.getItem('ql_last_order_id');
+                      navigate(lastOrderId ? `/order-status/${lastOrderId}` : '/order-status');
+                    }} 
+                    className={navLinkClass(location.pathname.startsWith('/order-status'))}
                   >
-                    {customer.name?.charAt(0).toUpperCase()}
-                  </div>
-                  {isDropdownOpen && (
-                    <div 
-                      onClick={(e) => e.stopPropagation()}
-                      className="absolute right-0 mt-3 w-56 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-50"
-                    >
-                    <div className="p-4 border-b border-zinc-100 dark:border-zinc-800">
-                      <p className="text-xs font-black text-[#8cb800] dark:text-[#d4ff00] uppercase tracking-widest mb-1">Guest Session</p>
-                      <p className="font-bold text-zinc-900 dark:text-white truncate">{customer.name}</p>
-                      <p className="text-xs text-zinc-500 font-mono mt-0.5">{customer.phone}</p>
-                    </div>
-                    <Link
-                      to="/customer/orders"
-                      className="block px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                    >
-                      📋 View All Orders
-                    </Link>
-                    <button
-                      onClick={() => {
-                        localStorage.removeItem('ql_customer');
-                        localStorage.removeItem('ql_last_order_id');
-                        window.location.href = '/';
-                      }}
-                      className="w-full text-left px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors border-t border-zinc-100 dark:border-zinc-800"
-                    >
-                      Logout
-                    </button>
-                  </div>
-                  )}
-                </div>
+                    Your Order
+                  </button>
+                </>
+              ) : role === 'vendor' ? (
+                <>
+                  <Link to="/vendor/dashboard" className={navLinkClass(location.pathname.includes('/vendor/dashboard'))}>Dashboard</Link>
+                  <Link to="/vendor/menu" className={navLinkClass(location.pathname === '/vendor/menu')}>Manage Menu</Link>
+                </>
+              ) : role === 'admin' ? (
+                <Link to="/admin/dashboard" className={navLinkClass(location.pathname.includes('dashboard'))}>Dashboard</Link>
+              ) : (
+                <Link to="/" className={navLinkClass(location.pathname === '/')}>Home</Link>
+              )}
+            </div>
 
-                {/* Dedicated logout button */}
+            {/* Right actions */}
+            <div className="flex items-center gap-3">
+              <ThemeToggle />
+
+              {/* Cart button — always visible when items exist */}
+              {itemCount > 0 && (
                 <button
-                  onClick={() => {
-                    localStorage.removeItem('ql_customer');
-                    localStorage.removeItem('ql_last_order_id');
-                    window.location.href = '/';
-                  }}
-                  className="hidden sm:flex px-3 py-2 bg-red-500 text-white text-xs font-bold rounded-xl hover:bg-red-600 transition-colors"
+                  onClick={openCart}
+                  className="relative flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white px-3 py-2 rounded-xl text-sm font-medium transition-all group"
+                  aria-label="Open cart"
                 >
-                  Logout
+                  <span className="group-hover:scale-110 transition-transform">🛒</span>
+                  <span className="flex items-center gap-1">
+                    <span className="text-zinc-400">·</span>
+                    <span className="text-[#8cb800] dark:text-[#d4ff00] font-bold">{itemCount}</span>
+                  </span>
                 </button>
-              </div>
-            ) : isAuthenticated ? (
-              <button
-                onClick={logout}
-                className="hidden sm:inline-flex items-center px-4 py-2 bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-sm font-bold rounded-xl hover:bg-red-200 dark:hover:bg-red-500/20 transition-colors border border-red-200 dark:border-red-500/20"
-              >
-                Log Out
-              </button>
-            ) : (
-              <Link
-                to="/auth"
-                className="hidden sm:inline-flex items-center px-4 py-2 bg-[#d4ff00] text-black text-sm font-bold rounded-xl hover:bg-[#c0e600] transition-colors shadow-sm"
-              >
-                Business Login
-              </Link>
-            )}
-          </div>
-        </nav>
-      </div>
-    </header>
+              )}
+
+              {/* Customer: profile avatar + dropdown + logout button */}
+              {customer ? (
+                <div className="flex items-center gap-2 ml-1">
+                  {/* Avatar with dropdown */}
+                  <div className="relative">
+                    <div 
+                      onClick={(e) => { e.stopPropagation(); setIsDropdownOpen(!isDropdownOpen); }}
+                      className="w-10 h-10 rounded-full bg-[#d4ff00] text-black font-black flex items-center justify-center cursor-pointer shadow-[0_0_20px_rgba(212,255,0,0.3)] hover:scale-105 transition-all select-none"
+                    >
+                      {customer.name?.charAt(0).toUpperCase()}
+                    </div>
+                    {isDropdownOpen && (
+                      <div 
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute right-0 mt-3 w-56 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-50"
+                      >
+                      <div className="p-4 border-b border-zinc-100 dark:border-zinc-800">
+                        <p className="text-xs font-black text-[#8cb800] dark:text-[#d4ff00] uppercase tracking-widest mb-1">Guest Session</p>
+                        <p className="font-bold text-zinc-900 dark:text-white truncate">{customer.name}</p>
+                        <p className="text-xs text-zinc-500 font-mono mt-0.5">{customer.phone}</p>
+                      </div>
+                      <Link
+                        to="/your-orders"
+                        className="block px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                      >
+                        📋 View All Orders
+                      </Link>
+                      <button
+                        onClick={() => {
+                          localStorage.removeItem('ql_customer');
+                          localStorage.removeItem('ql_last_order_id');
+                          window.location.href = '/';
+                        }}
+                        className="w-full text-left px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors border-t border-zinc-100 dark:border-zinc-800"
+                      >
+                        Logout
+                      </button>
+                    </div>
+                    )}
+                  </div>
+
+                  {/* Dedicated logout button */}
+                  <button
+                    onClick={() => {
+                      localStorage.removeItem('ql_customer');
+                      localStorage.removeItem('ql_last_order_id');
+                      window.location.href = '/';
+                    }}
+                    className="hidden sm:flex px-3 py-2 bg-red-500 text-white text-xs font-bold rounded-xl hover:bg-red-600 transition-colors"
+                  >
+                    Logout
+                  </button>
+                </div>
+              ) : isAuthenticated ? (
+                <button
+                  onClick={logout}
+                  className="hidden sm:inline-flex items-center px-4 py-2 bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-sm font-bold rounded-xl hover:bg-red-200 dark:hover:bg-red-500/20 transition-colors border border-red-200 dark:border-red-500/20"
+                >
+                  Log Out
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowCustomerLogin(true)}
+                    className="hidden sm:inline-flex items-center px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white text-sm font-bold rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors border border-zinc-200 dark:border-zinc-700"
+                  >
+                    Customer Login
+                  </button>
+                  <Link
+                    to="/auth"
+                    className="hidden sm:inline-flex items-center px-4 py-2 bg-[#d4ff00] text-black text-sm font-bold rounded-xl hover:bg-[#c0e600] transition-colors shadow-sm"
+                  >
+                    Business Login
+                  </Link>
+                </div>
+              )}
+            </div>
+          </nav>
+        </div>
+      </header>
+
+      <CustomerLoginModal 
+        isOpen={showCustomerLogin} 
+        onClose={() => setShowCustomerLogin(false)} 
+      />
+    </>
   );
 }

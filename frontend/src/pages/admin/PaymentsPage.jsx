@@ -1,15 +1,60 @@
-import { adminPayments } from '../../data/adminMockData';
+import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../layouts/AdminLayout';
 import Card from '../../components/Card';
 import Badge from '../../components/Badge';
-import Button from '../../components/Button';
+import Spinner from '../../components/Spinner';
+import EmptyState from '../../components/EmptyState';
+import api from '../../utils/api';
+import { toast } from 'react-hot-toast';
 
 export default function PaymentsPage() {
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    const fetchPayments = async () => {
+      try {
+        const res = await api.get('/admin/payments');
+        setPayments(res.data.data);
+      } catch (err) {
+        console.error(err);
+        toast.error('Failed to load payments');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPayments();
+  }, []);
+
+  const filteredPayments = payments.filter(p => 
+    p.id.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    p.vendorName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.orderId.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const stats = [
-    { label: 'Total Payments', value: '₹48,250', icon: '💳' },
-    { label: "Today's", value: '₹2,450', icon: '📅' },
-    { label: 'Successful', value: '₹45,800', icon: '✅' },
-    { label: 'Failed', value: '₹2,450', icon: '❌' },
+    { 
+      label: 'Total Payments', 
+      value: `₹${payments.reduce((acc, curr) => acc + curr.amount, 0).toLocaleString('en-IN')}`, 
+      icon: '💳' 
+    },
+    { 
+      label: "Today's", 
+      value: `₹${payments.filter(p => new Date(p.createdAt).toDateString() === new Date().toDateString()).reduce((acc, curr) => acc + curr.amount, 0).toLocaleString('en-IN')}`, 
+      icon: '📅' 
+    },
+    { 
+      label: 'Successful', 
+      value: `₹${payments.filter(p => p.status === 'success').reduce((acc, curr) => acc + curr.amount, 0).toLocaleString('en-IN')}`, 
+      icon: '✅' 
+    },
+    { 
+      label: 'Failed/Pending', 
+      value: `₹${payments.filter(p => p.status !== 'success').reduce((acc, curr) => acc + curr.amount, 0).toLocaleString('en-IN')}`, 
+      icon: '⏳' 
+    },
   ];
 
   return (
@@ -38,47 +83,63 @@ export default function PaymentsPage() {
             <div className="flex items-center gap-2">
               <input 
                 type="text" 
-                placeholder="Search payment ID..." 
+                placeholder="Search payments..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-2 text-xs focus:outline-none focus:border-[#d4ff00] w-full sm:w-64"
               />
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-zinc-950/50 text-[10px] uppercase font-bold text-zinc-500 tracking-widest">
-                  <th className="px-6 py-4">Payment ID</th>
-                  <th className="px-6 py-4">Order ID</th>
-                  <th className="px-6 py-4">Vendor</th>
-                  <th className="px-6 py-4">Amount</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Paid On</th>
-                  <th className="px-6 py-4 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800/50">
-                {adminPayments.map((payment) => (
-                  <tr key={payment.id} className="hover:bg-white/5 transition-colors group">
-                    <td className="px-6 py-4 text-sm font-mono text-zinc-400">{payment.id}</td>
-                    <td className="px-6 py-4 text-xs font-mono text-zinc-500">{payment.orderId}</td>
-                    <td className="px-6 py-4 text-sm font-semibold">{payment.vendor}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-white">₹{payment.amount}</td>
-                    <td className="px-6 py-4">
-                      <Badge variant={payment.status === 'success' ? 'green' : payment.status === 'pending' ? 'orange' : 'red'}>
-                        {payment.status}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 text-xs text-zinc-500">{payment.date}</td>
-                    <td className="px-6 py-4 text-right">
-                      <button className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-[#d4ff00] transition-colors">
-                        📄
-                      </button>
-                    </td>
+            {loading ? (
+              <div className="py-20">
+                <Spinner />
+              </div>
+            ) : filteredPayments.length === 0 ? (
+              <EmptyState text={searchQuery ? "No results found" : "No payments yet"} />
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-zinc-950/50 text-[10px] uppercase font-bold text-zinc-500 tracking-widest">
+                    <th className="px-6 py-4">Payment ID</th>
+                    <th className="px-6 py-4">Order ID</th>
+                    <th className="px-6 py-4">Vendor</th>
+                    <th className="px-6 py-4">Amount</th>
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4">Paid On</th>
+                    <th className="px-6 py-4 text-right">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/50">
+                  {filteredPayments.map((payment) => (
+                    <tr key={payment.id} className="hover:bg-white/5 transition-colors group">
+                      <td className="px-6 py-4 text-sm font-mono text-zinc-400">{payment.id}</td>
+                      <td className="px-6 py-4 text-xs font-mono text-zinc-500">{payment.orderId.slice(0, 8)}...</td>
+                      <td className="px-6 py-4 text-sm font-semibold">{payment.vendorName || 'Unknown'}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-white">₹{payment.amount.toLocaleString('en-IN')}</td>
+                      <td className="px-6 py-4">
+                        <Badge variant={payment.status === 'success' ? 'green' : payment.status === 'pending' ? 'orange' : 'red'}>
+                          {payment.status}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 text-xs text-zinc-500">
+                        {new Date(payment.createdAt).toLocaleDateString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        })}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-[#d4ff00] transition-colors">
+                          📄
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </Card>
       </div>

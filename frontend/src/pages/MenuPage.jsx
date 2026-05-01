@@ -49,7 +49,7 @@ export default function MenuPage() {
   const { setActiveVendorId } = useAuth();
 
   const [items, setItems] = useState([]);
-  const [vendorData, setVendorData] = useState({ name: 'Vendor', cuisine: 'Local Store', waitTime: 15, rating: 4.8, reviews: 100 });
+  const [vendorData, setVendorData] = useState({ name: 'Vendor', cuisine: 'Local Store', waitTime: 15, rating: '0.0', reviews: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
@@ -76,17 +76,18 @@ export default function MenuPage() {
     }
     const fetchData = async () => {
       try {
-        const [menuRes, vendorRes] = await Promise.all([
+        const [menuRes, vendorRes, reviewsRes] = await Promise.all([
           api.get(`/menus/${vendorIdFromQuery}`),
-          api.get(`/vendors/${vendorIdFromQuery}`)
+          api.get(`/vendors/${vendorIdFromQuery}`),
+          api.get(`/reviews/vendor/${vendorIdFromQuery}`).catch(() => ({ data: { avgRating: '0.0', totalReviews: 0 } }))
         ]);
         setItems(menuRes.data.data);
         setVendorData({
           name: vendorRes.data.data.outletName || vendorRes.data.data.name,
           cuisine: vendorRes.data.data.address?.split('\n')[0] || '',
           waitTime: vendorRes.data.data.averagePrepTime || 15,
-          rating: 4.8,
-          reviews: 124
+          rating: reviewsRes.data.avgRating || '0.0',
+          reviews: reviewsRes.data.totalReviews || 0
         });
       } catch {
         setError('Failed to fetch menu or store details.');

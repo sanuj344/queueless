@@ -29,14 +29,19 @@ model User {
   role              Role     @default(vendor)
   createdAt         DateTime @default(now())
   menuItems         MenuItem[]
+  orders            Order[]
+  complaints        Complaint[]
+  reviews           Review[]
 }
 
 model Customer {
-  id        String   @id @default(uuid())
-  name      String
-  phone     String   @unique
-  createdAt DateTime @default(now())
-  orders    Order[]
+  id         String      @id @default(uuid())
+  name       String
+  phone      String      @unique
+  createdAt  DateTime    @default(now())
+  orders     Order[]
+  complaints Complaint[]
+  reviews    Review[]
 }
 
 model MenuItem {
@@ -52,14 +57,52 @@ model MenuItem {
 }
 
 model Order {
-  id            String    @id @default(uuid())
+  id            String      @id @default(uuid())
   customerName  String
   customerPhone String
   customerId    String?
-  customer      Customer? @relation(fields: [customerId], references: [id])
+  customer      Customer?   @relation(fields: [customerId], references: [id])
   vendorId      String
+  vendor        User        @relation(fields: [vendorId], references: [id])
   items         Json
   totalAmount   Float
-  status        String    @default("pending")
-  createdAt     DateTime  @default(now())
+  status        String      @default("pending")
+  createdAt     DateTime    @default(now())
+  complaints    Complaint[]
+  reviewGiven   Boolean     @default(false)
+  reviews       Review[]
+}
+
+model Complaint {
+  id          String   @id @default(uuid())
+  orderId     String
+  customerId  String
+  vendorId    String
+
+  subject     String
+  description String
+  priority    String   // low, medium, high
+  status      String   @default("open")
+
+  createdAt   DateTime @default(now())
+
+  order       Order    @relation(fields: [orderId], references: [id])
+  customer    Customer @relation(fields: [customerId], references: [id])
+  vendor      User     @relation(fields: [vendorId], references: [id])
+}
+
+model Review {
+  id          String   @id @default(uuid())
+  rating      Int
+  comment     String?
+
+  customerId  String
+  vendorId    String
+  orderId     String
+
+  createdAt   DateTime @default(now())
+
+  customer    Customer @relation(fields: [customerId], references: [id])
+  vendor      User     @relation(fields: [vendorId], references: [id])
+  order       Order    @relation(fields: [orderId], references: [id])
 }
