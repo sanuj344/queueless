@@ -6,9 +6,19 @@ const router = express.Router();
 router.post('/orders', async (req, res, next) => {
   try {
     const { phone } = req.body;
-    
+
     if (!phone) {
       return res.status(400).json({ success: false, message: 'Phone number is required' });
+    }
+
+    const existingVendor = await prisma.user.findFirst({
+      where: { mobile: phone, role: 'vendor' }
+    });
+    if (existingVendor) {
+      return res.status(400).json({
+        success: false,
+        message: "This number is already registered as a vendor. Please login as vendor."
+      });
     }
 
     const orders = await prisma.order.findMany({
@@ -30,6 +40,16 @@ router.get('/orders', async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Phone number is required' });
     }
 
+    const existingVendor = await prisma.user.findFirst({
+      where: { mobile: phone, role: 'vendor' }
+    });
+    if (existingVendor) {
+      return res.status(400).json({
+        success: false,
+        message: "This number is already registered as a vendor. Please login as vendor."
+      });
+    }
+
     const orders = await prisma.order.findMany({
       where: { customerPhone: phone },
       orderBy: { createdAt: 'desc' }
@@ -47,6 +67,16 @@ router.get('/profile', async (req, res, next) => {
 
     if (!phone) {
       return res.status(400).json({ success: false, message: 'Phone number is required' });
+    }
+
+    const existingVendor = await prisma.user.findFirst({
+      where: { mobile: phone, role: 'vendor' }
+    });
+    if (existingVendor) {
+      return res.status(400).json({
+        success: false,
+        message: "This number is already registered as a vendor. Please login as vendor."
+      });
     }
 
     const customer = await prisma.customer.findUnique({

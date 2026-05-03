@@ -13,7 +13,7 @@ export default function CustomerLoginModal({ isOpen, onClose }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!info.phone.trim()) {
       setError('Please enter your phone number.');
       return;
@@ -23,7 +23,14 @@ export default function CustomerLoginModal({ isOpen, onClose }) {
       return;
     }
     setError('');
-    setStep(2);
+    try {
+      const res = await api.get(`/customer/profile?phone=${info.phone}`);
+      if (res.data.success) {
+        setStep(2);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Verification failed. Please try again.');
+    }
   };
 
   const handleVerify = async () => {
@@ -120,7 +127,11 @@ export default function CustomerLoginModal({ isOpen, onClose }) {
           onClick={handleContinue}
           disabled={info.phone.length !== 10}
         >
-          Send OTP
+          {(() => {
+            const searchParams = new URLSearchParams(window.location.search);
+            const isQRFlow = searchParams.get("vendorId") || localStorage.getItem("ql_vendor");
+            return isQRFlow ? "Verify & Place Order" : "Verify";
+          })()}
         </Button>
         
         <p className="text-[10px] text-zinc-400 text-center mt-6 uppercase tracking-widest">

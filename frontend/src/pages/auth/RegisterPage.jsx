@@ -49,8 +49,8 @@ export default function RegisterPage() {
       setError('Basic details are required.');
       return false;
     }
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (!formData.password || formData.password.length < 6) {
+      setError('Password must be at least 6 characters');
       return false;
     }
     if (formData.password !== confirmPassword) {
@@ -358,7 +358,7 @@ export default function RegisterPage() {
                 type="submit" 
                 fullWidth={step === 1 && role === 'vendor' ? false : true}
                 className={step === 1 && role === 'vendor' ? 'flex-1' : 'w-full'}
-                disabled={isLoading || !!successMsg}
+                disabled={isLoading || !!successMsg || !formData.password || formData.password.length < 6}
               >
                 {isLoading ? (
                   <span className="flex items-center justify-center gap-2">

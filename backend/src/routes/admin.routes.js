@@ -7,6 +7,90 @@ const router = express.Router();
 // All routes here are protected and restricted to admin
 router.use(protect, restrictTo('admin'));
 
+router.get('/dashboard', async (req, res, next) => {
+  try {
+    const totalVendors = await prisma.user.count({
+      where: { role: 'vendor' }
+    });
+
+    const verifiedVendors = await prisma.user.count({
+      where: { role: 'vendor', isApproved: true }
+    });
+
+    const unverifiedVendors = await prisma.user.count({
+      where: { role: 'vendor', isApproved: false }
+    });
+
+    // orders
+    const orders = await prisma.order.findMany({
+      include: {
+        vendor: true
+      }
+    });
+
+    // commission (10%)
+    let commission = 0;
+    const vendorMap = {};
+
+    orders.forEach(order => {
+      if (!order.vendor) return;
+      const vendorId = order.vendorId;
+
+      if (!vendorMap[vendorId]) {
+        vendorMap[vendorId] = {
+          name: order.vendor.outletName || order.vendor.name,
+          totalOrders: 0,
+          cancelled: 0,
+          revenue: 0,
+          joinedAt: order.vendor.createdAt,
+          status: order.vendor.isApproved ? 'verified' : 'unverified'
+        };
+      }
+
+      vendorMap[vendorId].totalOrders += 1;
+      vendorMap[vendorId].revenue += order.totalAmount;
+
+      if (order.status === 'cancelled') {
+        vendorMap[vendorId].cancelled += 1;
+      }
+
+      commission += order.totalAmount * 0.1;
+    });
+
+    const allVendors = await prisma.user.findMany({
+      where: { role: 'vendor' }
+    });
+
+    allVendors.forEach(v => {
+      if (!vendorMap[v.id]) {
+        vendorMap[v.id] = {
+          name: v.outletName || v.name,
+          totalOrders: 0,
+          cancelled: 0,
+          revenue: 0,
+          joinedAt: v.createdAt,
+          status: v.isApproved ? 'verified' : 'unverified'
+        };
+      }
+    });
+
+    const vendors = Object.values(vendorMap);
+
+    res.json({
+      success: true,
+      data: {
+        commission,
+        totalVendors,
+        verifiedVendors,
+        unverifiedVendors,
+        vendors
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 /**
  * @route   GET /api/admin/vendors
  * @desc    Get all vendors
@@ -155,6 +239,17 @@ router.get('/complaints', async (req, res, next) => {
     });
 
     res.status(200).json({ success: true, data: complaints });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/referrals', async (req, res, next) => {
+  try {
+    const referrals = await prisma.vendorReferral.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+    res.status(200).json({ success: true, data: referrals });
   } catch (error) {
     next(error);
   }

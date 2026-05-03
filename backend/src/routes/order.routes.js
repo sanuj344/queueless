@@ -9,6 +9,16 @@ router.post('/', async (req, res, next) => {
   try {
     const { customerName, customerPhone, vendorId, items, totalAmount, deliveryTime } = req.body;
 
+    const existingVendor = await prisma.user.findFirst({
+      where: { mobile: customerPhone, role: 'vendor' }
+    });
+    if (existingVendor) {
+      return res.status(400).json({
+        success: false,
+        message: "This number is already registered as a vendor. Please login as vendor."
+      });
+    }
+
     // Find or create customer by phone (persistent guest tracking)
     let customer = await prisma.customer.findUnique({ where: { phone: customerPhone } });
     if (!customer) {
@@ -77,7 +87,7 @@ router.get('/:id', async (req, res, next) => {
     let order = await prisma.order.findUnique({
       where: { id: req.params.id }
     });
-    
+
     if (!order) {
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
@@ -90,8 +100,40 @@ router.get('/:id', async (req, res, next) => {
         data: { status: 'cancelled' }
       });
     }
-    
+
     res.status(200).json({ success: true, data: order });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Customer Cancel Order
+router.patch('/:id/cancel', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const order = await prisma.order.findUnique({
+      where: { id }
+    });
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    // Allow if status is placed or pending
+    if (order.status !== 'placed' && order.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Order cannot be cancelled after preparation starts'
+      });
+    }
+
+    const updatedOrder = await prisma.order.update({
+      where: { id },
+      data: { status: 'cancelled' }
+    });
+
+    res.json({ success: true, data: updatedOrder });
   } catch (error) {
     next(error);
   }
@@ -101,9 +143,19 @@ router.get('/:id', async (req, res, next) => {
 router.patch('/:id', protect, restrictTo('vendor'), async (req, res, next) => {
   try {
     const { status } = req.body;
+    const dataToUpdate = { status };
+
+    if (status === 'accepted') {
+      dataToUpdate.acceptedAt = new Date();
+    } else if (status === 'preparing') {
+      dataToUpdate.preparingAt = new Date();
+    } else if (status === 'ready') {
+      dataToUpdate.readyAt = new Date();
+    }
+
     const order = await prisma.order.update({
       where: { id: req.params.id },
-      data: { status }
+      data: dataToUpdate
     });
     res.status(200).json({ success: true, data: order });
   } catch (error) {

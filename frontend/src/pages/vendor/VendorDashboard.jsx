@@ -81,7 +81,7 @@ export default function VendorDashboard() {
 
   const pendingOrders = orders.filter((o) => o.status === 'pending');
   const activeOrders = orders.filter((o) => ['accepted', 'preparing', 'ready'].includes(o.status));
-  const completedOrders = orders.filter((o) => o.status === 'completed');
+  const completedOrders = orders.filter((o) => ['completed', 'cancelled'].includes(o.status));
 
   if (loading && activeTab === 'orders') return (
     <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
@@ -171,7 +171,9 @@ export default function VendorDashboard() {
                     <div key={order.id} className="p-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 rounded-2xl flex justify-between items-center text-sm opacity-60">
                       <div>
                         <p className="font-bold text-zinc-900 dark:text-white">{order.customerName}</p>
-                        <p className="text-[10px] text-zinc-500">ID: {order.id.slice(0, 8)}</p>
+                        <p className="text-[10px] text-zinc-500">
+                          ID: {order.id.slice(0, 8)} • <span className={order.status === 'cancelled' ? 'text-red-500' : 'text-emerald-500 font-bold uppercase'}>{order.status}</span>
+                        </p>
                       </div>
                       <span className="font-black text-[#d4ff00]">{formatCurrency(order.totalAmount)}</span>
                     </div>
@@ -254,27 +256,38 @@ function OrderCard({ order, children }) {
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    if (order.status !== 'pending' || !order.expiresAt) return;
+    if (!['placed', 'pending', 'accepted', 'preparing'].includes(order.status)) return;
     const interval = setInterval(() => {
       setNow(Date.now());
     }, 1000);
     return () => clearInterval(interval);
-  }, [order.status, order.expiresAt]);
+  }, [order.status]);
 
-  const getRemainingSeconds = () => {
-    if (!order.expiresAt) return 0;
-    const diff = new Date(order.expiresAt).getTime() - now;
-    return Math.max(Math.floor(diff / 1000), 0);
+  const getStageTimeLeft = () => {
+    const FIVE_MIN = 5 * 60 * 1000;
+    const TEN_MIN = 10 * 60 * 1000;
+    if (order.status === 'placed' || order.status === 'pending') {
+      const diff = FIVE_MIN - (now - new Date(order.createdAt).getTime());
+      return Math.max(0, Math.floor(diff / 1000));
+    }
+    if (order.status === 'accepted' && order.acceptedAt) {
+      const diff = TEN_MIN - (now - new Date(order.acceptedAt).getTime());
+      return Math.max(0, Math.floor(diff / 1000));
+    }
+    if (order.status === 'preparing' && order.preparingAt) {
+      const diff = FIVE_MIN - (now - new Date(order.preparingAt).getTime());
+      return Math.max(0, Math.floor(diff / 1000));
+    }
+    return 0;
   };
-
-  const remainingSec = getRemainingSeconds();
 
   const statusColors = {
     pending: 'bg-yellow-500/10 text-yellow-500',
     accepted: 'bg-blue-500/10 text-blue-500',
     preparing: 'bg-amber-500/10 text-amber-500',
     ready: 'bg-emerald-500/10 text-emerald-500',
-    completed: 'bg-zinc-500/10 text-zinc-500'
+    completed: 'bg-zinc-500/10 text-zinc-500',
+    cancelled: 'bg-red-500/10 text-red-500'
   };
 
   return (
@@ -294,9 +307,9 @@ function OrderCard({ order, children }) {
           <p className="text-sm font-black text-[#d4ff00]">{formatCurrency(order.totalAmount)}</p>
           <p className="text-[10px] text-zinc-500 mt-1">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
           <p className="text-[10px] text-zinc-500 mt-1 font-bold">⏱ Delivery: {order.deliveryTime || 'ASAP'}</p>
-          {order.status === 'pending' && (
-            <p className={`text-xs font-black mt-1 ${remainingSec > 30 ? 'text-[#d4ff00]' : 'text-red-500 animate-pulse'}`}>
-              ⏳ {remainingSec} sec left
+          {['placed', 'pending', 'accepted', 'preparing'].includes(order.status) && (
+            <p className="text-xs font-black mt-1 text-red-500 animate-pulse">
+              ⏳ {Math.floor(getStageTimeLeft() / 60)}m {getStageTimeLeft() % 60}s left
             </p>
           )}
         </div>

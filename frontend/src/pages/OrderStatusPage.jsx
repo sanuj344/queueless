@@ -25,6 +25,18 @@ export default function OrderStatusPage() {
   const [manualId, setManualId] = useState('');
   const [showReviewModal, setShowReviewModal] = useState(false);
 
+  const handleCancel = async () => {
+    if (!window.confirm("Are you sure you want to cancel this order?")) return;
+    try {
+      const res = await api.patch(`/orders/${order.id}/cancel`);
+      if (res.data.success) {
+        setOrder(res.data.data);
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Cancellation failed. Please try again.');
+    }
+  };
+
   // 1. Auto-redirect to last order if no ID provided in URL
   useEffect(() => {
     if (!id) {
@@ -40,24 +52,30 @@ export default function OrderStatusPage() {
   // 2. Live tracking for a specific order
   useEffect(() => {
     if (!id) return;
-    
+
+    let interval;
     const fetchOrder = async () => {
       try {
         const res = await api.get(`/orders/${id}`);
-        setOrder(res.data.data);
+        const data = res.data.data;
+        setOrder(data);
         setError('');
-        
+
         // Ensure this is saved as the last viewed valid order
-        localStorage.setItem('ql_last_order_id', res.data.data.id);
+        localStorage.setItem('ql_last_order_id', data.id);
+
+        if (['completed', 'cancelled'].includes(data.status)) {
+          clearInterval(interval);
+        }
       } catch {
         setError('Order not found.');
       } finally {
         setLoading(false);
       }
     };
-    
+
     fetchOrder();
-    const interval = setInterval(fetchOrder, 3000);
+    interval = setInterval(fetchOrder, 3000);
     return () => clearInterval(interval);
   }, [id]);
 
@@ -76,6 +94,28 @@ export default function OrderStatusPage() {
         <Link to="/" className="mt-6"><Button>Back to Home</Button></Link>
       </div>
     );
+
+    if (order.status === 'cancelled') {
+      return (
+        <div className="min-h-screen bg-white dark:bg-black flex flex-col items-center justify-center px-4 pt-24 pb-12 text-center">
+          <div className="w-20 h-20 bg-red-500/10 rounded-[2.5rem] flex items-center justify-center mb-6">
+            <span className="text-3xl">❌</span>
+          </div>
+          <h1 className="text-3xl font-black text-red-500">Order Cancelled</h1>
+          <p className="text-zinc-500 mt-2 max-w-xs leading-relaxed">
+            Vendor did not accept within the 5-minute window or cancelled the order.
+          </p>
+          <div className="flex gap-3 w-full max-w-md mt-8">
+            <Link to={`/menu?vendorId=${order.vendorId}`} className="flex-1">
+              <Button variant="outline" fullWidth size="lg">Order More</Button>
+            </Link>
+            <Link to="/" className="flex-1">
+              <Button fullWidth size="lg">Home</Button>
+            </Link>
+          </div>
+        </div>
+      );
+    }
 
     const currentStep = STATUS_STEPS[order.status] || 1;
     return (
@@ -101,7 +141,7 @@ export default function OrderStatusPage() {
                       'w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-all duration-500',
                       isDone ? 'bg-[#8cb800] dark:bg-[#d4ff00] text-white dark:text-black'
                         : isActive ? 'bg-white dark:bg-black border-2 border-[#d4ff00] text-[#d4ff00]'
-                        : 'bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-400',
+                          : 'bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-400',
                     ].join(' ')}>
                       {isDone ? '✓' : isActive ? <span className="animate-pulse">●</span> : step.id}
                     </div>
@@ -134,6 +174,20 @@ export default function OrderStatusPage() {
               onClick={() => setShowReviewModal(true)}
             >
               ⭐ Leave a Review
+            </Button>
+          </div>
+        )}
+
+        {(order.status === 'placed' || order.status === 'pending') && (
+          <div className="w-full max-w-md mb-6">
+            <Button
+              fullWidth
+              variant="outline"
+              size="lg"
+              className="border-red-500/40 hover:border-red-500 text-red-500 hover:bg-red-500/5 font-black tracking-tight"
+              onClick={handleCancel}
+            >
+              Cancel Order
             </Button>
           </div>
         )}

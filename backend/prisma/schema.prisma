@@ -73,6 +73,9 @@ model Order {
   reviews       Review[]
   deliveryTime  String?     @default("ASAP")
   expiresAt     DateTime?
+  acceptedAt    DateTime?
+  preparingAt   DateTime?
+  readyAt       DateTime?
 }
 
 model Complaint {
@@ -107,4 +110,14 @@ model Review {
   customer    Customer @relation(fields: [customerId], references: [id])
   vendor      User     @relation(fields: [vendorId], references: [id])
   order       Order    @relation(fields: [orderId], references: [id])
+}
+
+model VendorReferral {
+  id              String   @id @default(uuid())
+  name            String
+  phone           String
+  location        String
+  referredByPhone String
+  status          String   @default("pending") // pending, contacted, onboarded
+  createdAt       DateTime @default(now())
 }

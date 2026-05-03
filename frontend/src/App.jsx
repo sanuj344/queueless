@@ -26,6 +26,18 @@ import VendorDashboard from './pages/vendor/VendorDashboard';
 import VendorMenuPage from './pages/vendor/VendorMenuPage';
 import CreateMenuPage from './pages/vendor/CreateMenuPage';
 import CartPage from './pages/CartPage';
+import ReferVendorPage from './pages/ReferVendorPage';
+import CustomerHub from './pages/CustomerHub';
+import AboutPage from './pages/AboutPage';
+import CustomerProtectedRoute from './components/CustomerProtectedRoute';
+import TermsPage from './pages/legal/TermsPage';
+import PrivacyPage from './pages/legal/PrivacyPage';
+import RefundPage from './pages/legal/RefundPage';
+import DisclaimerPage from './pages/legal/DisclaimerPage';
+import FaqPage from './pages/support/FaqPage';
+import ReportIssuePage from './pages/support/ReportIssuePage';
+import ContactPage from './pages/support/ContactPage';
+import ScrollToTop from './components/ScrollToTop';
 
 function ProtectedRoute({ children, roleRequired }) {
   const { user, isAuthenticated } = useAuth();
@@ -48,6 +60,7 @@ export default function App() {
       <AuthProvider>
         <CartProvider>
           <BrowserRouter>
+            <ScrollToTop />
             <div className="flex flex-col min-h-screen">
               <Navbar />
               <div className="flex-grow">
@@ -60,10 +73,30 @@ export default function App() {
                   <Route path="/order-status/:id" element={<OrderStatusPage />} />
                   <Route path="/your-orders" element={<CustomerOrdersPage />} />
                   <Route path="/help-desk" element={<HelpDeskPage />} />
+
+                  {/* Real Explore Pages & Fallbacks */}
+                  <Route
+                    path="/refer-vendor"
+                    element={
+                      <CustomerProtectedRoute>
+                        <ReferVendorPage />
+                      </CustomerProtectedRoute>
+                    }
+                  />
+                  <Route path="/customer-hub" element={<CustomerHub />} />
+                  <Route path="/about" element={<AboutPage />} />
+                  <Route path="/terms" element={<TermsPage />} />
+                  <Route path="/privacy" element={<PrivacyPage />} />
+                  <Route path="/refund" element={<RefundPage />} />
+                  <Route path="/disclaimer" element={<DisclaimerPage />} />
+                  <Route path="/faqs" element={<FaqPage />} />
+                  <Route path="/report-issue" element={<ReportIssuePage />} />
+                  <Route path="/contact" element={<ContactPage />} />
                   
                   {/* Auth Routes */}
                   <Route path="/auth" element={<LoginPage />} />
                   <Route path="/auth/register" element={<RegisterPage />} />
+                  <Route path="/vendor/register" element={<RegisterPage />} />
                   
                   {/* Protected Routes */}
                   <Route 

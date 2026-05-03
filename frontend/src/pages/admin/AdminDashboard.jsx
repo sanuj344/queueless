@@ -1,26 +1,92 @@
-import { adminVendors, adminKPIs } from '../../data/adminMockData';
+import { useState, useEffect } from 'react';
 import AdminLayout from '../../layouts/AdminLayout';
 import Card from '../../components/Card';
 import Badge from '../../components/Badge';
 import Button from '../../components/Button';
+import Spinner from '../../components/Spinner';
+import api from '../../utils/api';
 
 export default function AdminDashboard() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const fetchDashboard = async () => {
+    try {
+      const res = await api.get('/admin/dashboard');
+      if (res.data && res.data.success) {
+        setData(res.data.data);
+      } else {
+        setError('Unexpected response format');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboard();
+  }, []);
+
+  const handleApproval = async (id, isApproved) => {
+    try {
+      await api.patch(`/admin/vendor/${id}`, { isApproved });
+      // update the state without refetching entirely if needed or refetch for consistency
+      fetchDashboard();
+    } catch (err) {
+      console.error("[AdminDashboard] Update Error:", err);
+      alert('Failed to update vendor status');
+    }
+  };
+
+  if (loading) return (
+    <AdminLayout>
+      <div className="flex h-[60vh] items-center justify-center">
+        <Spinner size="lg" />
+      </div>
+    </AdminLayout>
+  );
+
+  if (error) return (
+    <AdminLayout>
+      <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-2xl border border-red-200 dark:border-red-800/50 text-sm">
+        ⚠️ {error}
+      </div>
+    </AdminLayout>
+  );
+
+  const stats = [
+    { label: "Commission Earned", value: `₹${(data?.commission || 0).toLocaleString()}`, icon: "💰" },
+    { label: "Total Vendors", value: data?.totalVendors || 0, icon: "🏪" },
+    { label: "Verified Vendors", value: data?.verifiedVendors || 0, icon: "✅" },
+    { label: "Unverified Vendors", value: data?.unverifiedVendors || 0, icon: "⏳" }
+  ];
+
+  const filteredVendors = (data?.vendors || []).filter(v => {
+    const name = (v.name || '').toLowerCase();
+    const search = searchTerm.toLowerCase();
+    return name.includes(search);
+  });
+
   return (
     <AdminLayout>
       <div className="space-y-8 animate-in fade-in duration-500">
         
         {/* KPI Section */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {adminKPIs.map((kpi, idx) => (
-            <Card key={idx} className="p-5 border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 transition-all group">
+          {stats.map((kpi, idx) => (
+            <Card key={idx} className="p-5 border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 transition-all group flex flex-col justify-between">
               <div className="flex justify-between items-start mb-2">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">{kpi.label}</h3>
-                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${kpi.positive ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'}`}>
-                  {kpi.trend}
-                </span>
+                <span className="text-xl select-none">{kpi.icon}</span>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-black text-zinc-900 dark:text-white group-hover:text-[#8cb800] dark:group-hover:text-[#d4ff00] transition-colors">{kpi.value}</span>
+                <span className="text-2xl font-black text-zinc-900 dark:text-white group-hover:text-[#8cb800] dark:group-hover:text-[#d4ff00] transition-colors">
+                  {kpi.value}
+                </span>
               </div>
             </Card>
           ))}
@@ -40,12 +106,11 @@ export default function AdminDashboard() {
                 <input 
                   type="text" 
                   placeholder="Search vendors..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   className="bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl px-9 py-2 text-xs focus:outline-none focus:border-[#8cb800] dark:focus:border-[#d4ff00] transition-colors w-full sm:w-64 text-zinc-900 dark:text-white"
                 />
               </div>
-              <Button size="sm" variant="outline" className="text-xs border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">
-                <span>⚡</span> Filter
-              </Button>
             </div>
           </div>
 
@@ -59,16 +124,15 @@ export default function AdminDashboard() {
                   <th className="px-6 py-4">Cancelled</th>
                   <th className="px-6 py-4">Total Amount</th>
                   <th className="px-6 py-4">Joined Date</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
-                {adminVendors.map((vendor) => (
-                  <tr key={vendor.id} className="hover:bg-zinc-50 dark:hover:bg-white/5 transition-colors group">
+                {filteredVendors.map((vendor, i) => (
+                  <tr key={i} className="hover:bg-zinc-50 dark:hover:bg-white/5 transition-colors group">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-xs font-bold text-[#8cb800] dark:text-[#d4ff00]">
-                          {vendor.name.charAt(0)}
+                          {(vendor.name || '').charAt(0).toUpperCase()}
                         </div>
                         <span className="text-sm font-semibold text-zinc-900 dark:text-white">{vendor.name}</span>
                       </div>
@@ -78,27 +142,11 @@ export default function AdminDashboard() {
                         {vendor.status}
                       </Badge>
                     </td>
-                    <td className="px-6 py-4 text-sm text-zinc-600 dark:text-zinc-400">{vendor.orders || 0}</td>
+                    <td className="px-6 py-4 text-sm text-zinc-600 dark:text-zinc-400">{vendor.totalOrders || 0}</td>
                     <td className="px-6 py-4 text-sm text-red-500 dark:text-red-400/80">{vendor.cancelled || 0}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-zinc-900 dark:text-white">₹{(vendor.amount || 0).toLocaleString()}</td>
-                    <td className="px-6 py-4 text-xs text-zinc-500">{vendor.joined}</td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {vendor.status === 'verified' ? (
-                          <Button size="xs" className="bg-red-500/10 text-red-600 dark:text-red-500 hover:bg-red-500/20 border-none px-3">
-                            Terminate
-                          </Button>
-                        ) : (
-                          <>
-                            <Button size="xs" className="bg-[#8cb800]/10 dark:bg-[#d4ff00]/10 text-[#8cb800] dark:text-[#d4ff00] hover:bg-[#8cb800]/20 dark:hover:bg-[#d4ff00]/20 border-none px-3">
-                              Approve
-                            </Button>
-                            <Button size="xs" className="bg-red-500/10 text-red-600 dark:text-red-500 hover:bg-red-500/20 border-none px-3">
-                              Decline
-                            </Button>
-                          </>
-                        )}
-                      </div>
+                    <td className="px-6 py-4 text-sm font-bold text-zinc-900 dark:text-white">₹{(vendor.revenue || 0).toLocaleString()}</td>
+                    <td className="px-6 py-4 text-xs text-zinc-500">
+                      {vendor.joinedAt ? new Date(vendor.joinedAt).toLocaleDateString() : 'N/A'}
                     </td>
                   </tr>
                 ))}
@@ -107,21 +155,9 @@ export default function AdminDashboard() {
           </div>
 
           <div className="p-4 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
-            <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Showing {adminVendors.length} of 32 vendors</p>
-            <div className="flex items-center gap-2">
-              {[1, 2, 3].map((page) => (
-                <button 
-                  key={page}
-                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
-                    page === 1 
-                      ? 'bg-[#8cb800] dark:bg-[#d4ff00] text-white dark:text-black shadow-[0_0_15px_rgba(212,255,0,0.3)]' 
-                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-white'
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
-            </div>
+            <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">
+              Showing {filteredVendors.length} of {data?.vendors?.length || 0} vendors
+            </p>
           </div>
         </Card>
 

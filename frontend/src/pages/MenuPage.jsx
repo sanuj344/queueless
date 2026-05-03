@@ -57,7 +57,10 @@ export default function MenuPage() {
 
   // Persist vendorId so Navbar Menu link always works
   useEffect(() => {
-    if (vendorIdFromQuery) setActiveVendorId(vendorIdFromQuery);
+    if (vendorIdFromQuery) {
+      setActiveVendorId(vendorIdFromQuery);
+      localStorage.setItem("ql_vendor", vendorIdFromQuery);
+    }
     
     // Safety check: if cart has items from a different vendor, clear it to prevent order mismatch
     if (cartItems && cartItems.length > 0 && vendorIdFromQuery) {

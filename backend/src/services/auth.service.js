@@ -17,6 +17,10 @@ const registerUser = async (data) => {
     throw new ApiError(400, 'All vendor fields are required');
   }
 
+  if (!password || password.length < 6) {
+    throw new ApiError(400, "Password must be at least 6 characters");
+  }
+
   const existingUser = await prisma.user.findUnique({
     where: { email },
   });

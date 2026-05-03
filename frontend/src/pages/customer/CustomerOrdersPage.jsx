@@ -26,7 +26,7 @@ export default function CustomerOrdersPage() {
       try {
         const res = await api.get(`/customer/orders?phone=${customer.phone}`);
         const orderData = res.data.data || [];
-        
+
         // Sort: Active orders (not completed/cancelled) on top
         const sorted = [...orderData].sort((a, b) => {
           const aActive = a.status !== 'completed' && a.status !== 'cancelled';
@@ -97,13 +97,13 @@ export default function CustomerOrdersPage() {
             {orders.map((o) => {
               const step = STATUS_STEPS[o.status] || 1;
               const isActive = o.status !== 'completed' && o.status !== 'cancelled';
-              const statusColor = isActive 
-                ? (step >= 4 ? 'text-[#8cb800] dark:text-[#d4ff00]' : 'text-amber-500') 
+              const statusColor = isActive
+                ? (step >= 4 ? 'text-[#8cb800] dark:text-[#d4ff00]' : 'text-amber-500')
                 : 'text-zinc-400';
-              
+
               return (
-                <div 
-                  key={o.id} 
+                <div
+                  key={o.id}
                   onClick={() => navigate(`/order-status/${o.id}`)}
                   className={`p-6 rounded-3xl border ${isActive ? 'border-[#d4ff00]/30 bg-[#d4ff00]/5 shadow-lg shadow-[#d4ff00]/5' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'} hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer group`}
                 >
@@ -116,7 +116,7 @@ export default function CustomerOrdersPage() {
                       {o.status}
                     </span>
                   </div>
-                  
+
                   <div className="flex items-end justify-between">
                     <div>
                       <p className="text-xs text-zinc-500 mb-1">

@@ -51,7 +51,11 @@ export default function OTPModal({ isOpen, onClose, onVerify, phone }) {
           onClick={handleVerify}
           disabled={otp.length !== 4}
         >
-          Verify & Place Order
+          {(() => {
+            const searchParams = new URLSearchParams(window.location.search);
+            const isQRFlow = searchParams.get("vendorId") || localStorage.getItem("ql_vendor");
+            return isQRFlow ? "Verify & Place Order" : "Verify";
+          })()}
         </Button>
         
         <button 

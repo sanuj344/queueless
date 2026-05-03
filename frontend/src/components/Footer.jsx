@@ -1,8 +1,20 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import CustomerLoginModal from "./CustomerLoginModal";
 
 const Footer = () => {
   const navigate = useNavigate();
+  const [showLogin, setShowLogin] = useState(false);
+
+  const handleReferVendorClick = () => {
+    const customer = JSON.parse(localStorage.getItem('ql_customer'));
+    if (!customer || !customer.phone) {
+      setShowLogin(true);
+    } else {
+      navigate('/refer-vendor');
+    }
+  };
+
   return (
     <footer className="bg-black text-gray-400 px-10 py-12 mt-20">
       
@@ -19,25 +31,32 @@ const Footer = () => {
           </p>
         </div>
 
-        {/* ECOSYSTEM */}
+        {/* EXPLORE */}
         <div>
-          <h2 className="text-lime-400 font-semibold mb-4">ECOSYSTEM</h2>
+          <h2 className="text-lime-400 font-semibold mb-4">EXPLORE</h2>
           <ul className="space-y-2">
-            <li onClick={() => alert("Coming soon")} className="hover:text-white cursor-pointer transition-colors">Merchant App</li>
-            <li onClick={() => alert("Coming soon")} className="hover:text-white cursor-pointer transition-colors">Customer Hub</li>
-            <li onClick={() => alert("Coming soon")} className="hover:text-white cursor-pointer transition-colors">Admin Panel</li>
-            <li onClick={() => alert("Coming soon")} className="hover:text-white cursor-pointer transition-colors">QR Generator</li>
+            <li>
+              <button
+                onClick={handleReferVendorClick}
+                className="hover:text-white cursor-pointer transition-colors text-sm text-left block w-full"
+              >
+                Refer a Vendor
+              </button>
+            </li>
+            <li><Link to="/vendor/register" className="hover:text-white cursor-pointer transition-colors text-sm">Become a Vendor</Link></li>
+            <li><Link to="/customer-hub" className="hover:text-white cursor-pointer transition-colors text-sm">Customer Hub</Link></li>
+            <li><Link to="/about" className="hover:text-white cursor-pointer transition-colors text-sm">About Us</Link></li>
           </ul>
         </div>
 
-        {/* CORPORATE */}
+        {/* LEGAL */}
         <div>
-          <h2 className="text-lime-400 font-semibold mb-4">CORPORATE</h2>
+          <h2 className="text-lime-400 font-semibold mb-4">LEGAL</h2>
           <ul className="space-y-2">
-            <li onClick={() => alert("Coming soon")} className="hover:text-white cursor-pointer transition-colors">Terms of Service</li>
-            <li onClick={() => alert("Coming soon")} className="hover:text-white cursor-pointer transition-colors">Privacy Policy</li>
-            <li onClick={() => alert("Coming soon")} className="hover:text-white cursor-pointer transition-colors">Cookie Policy</li>
-            <li onClick={() => alert("Coming soon")} className="hover:text-white cursor-pointer transition-colors">Brand Assets</li>
+            <li><Link to="/terms" className="hover:text-white cursor-pointer transition-colors text-sm">Terms & Conditions</Link></li>
+            <li><Link to="/privacy" className="hover:text-white cursor-pointer transition-colors text-sm">Privacy Policy</Link></li>
+            <li><Link to="/refund" className="hover:text-white cursor-pointer transition-colors text-sm">Refund Policy</Link></li>
+            <li><Link to="/disclaimer" className="hover:text-white cursor-pointer transition-colors text-sm">Disclaimer</Link></li>
           </ul>
         </div>
 
@@ -45,10 +64,10 @@ const Footer = () => {
         <div>
           <h2 className="text-lime-400 font-semibold mb-4">SUPPORT</h2>
           <ul className="space-y-2">
-            <li onClick={() => navigate("/help-desk")} className="hover:text-white cursor-pointer transition-colors">Help Desk</li>
-            <li onClick={() => alert("Coming soon")} className="hover:text-white cursor-pointer transition-colors">API Docs</li>
-            <li onClick={() => alert("Coming soon")} className="hover:text-white cursor-pointer transition-colors">Status Page</li>
-            <li onClick={() => alert("Coming soon")} className="hover:text-white cursor-pointer transition-colors">Contact Centre</li>
+            <li><Link to="/help-desk" className="hover:text-white cursor-pointer transition-colors text-sm">Help Desk</Link></li>
+            <li><Link to="/faqs" className="hover:text-white cursor-pointer transition-colors text-sm">FAQs</Link></li>
+            <li><Link to="/report-issue" className="hover:text-white cursor-pointer transition-colors text-sm">Report Issue</Link></li>
+            <li><Link to="/contact" className="hover:text-white cursor-pointer transition-colors text-sm">Contact Center</Link></li>
           </ul>
         </div>
 
@@ -58,6 +77,17 @@ const Footer = () => {
       <div className="max-w-7xl mx-auto border-t border-gray-800 mt-10 pt-6 text-sm text-center text-zinc-600">
         © 2026 QueueLess. All rights reserved.
       </div>
+
+      <CustomerLoginModal
+        isOpen={showLogin}
+        onClose={() => {
+          setShowLogin(false);
+          const customer = JSON.parse(localStorage.getItem('ql_customer'));
+          if (customer && customer.phone) {
+            navigate('/refer-vendor');
+          }
+        }}
+      />
     </footer>
   );
 };
