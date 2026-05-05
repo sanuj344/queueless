@@ -1,6 +1,7 @@
 const express = require('express');
 const prisma = require('../config/prisma');
 const { protect, restrictTo } = require('../middlewares/auth.middleware');
+const { calculatePlatformFee } = require('../utils/calculateFee');
 
 const router = express.Router();
 
@@ -22,8 +23,9 @@ router.post('/', async (req, res, next) => {
     // Find or create customer by phone (persistent guest tracking)
     let customer = await prisma.customer.findUnique({ where: { phone: customerPhone } });
     if (!customer) {
+      const { generateReferralCode } = require('../utils/referral');
       customer = await prisma.customer.create({
-        data: { name: customerName, phone: customerPhone }
+        data: { name: customerName, phone: customerPhone, referralCode: generateReferralCode() }
       });
     } else if (customer.name !== customerName) {
       // Update name if customer is placing order with a different name
@@ -35,6 +37,8 @@ router.post('/', async (req, res, next) => {
 
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
+    const fee = calculatePlatformFee(parseFloat(totalAmount));
+
     const order = await prisma.order.create({
       data: {
         customerName,
@@ -43,6 +47,8 @@ router.post('/', async (req, res, next) => {
         vendorId,
         items,
         totalAmount: parseFloat(totalAmount),
+        platformFee: fee,
+        finalAmount: parseFloat(totalAmount) + fee,
         status: 'pending',
         deliveryTime: deliveryTime || 'ASAP',
         expiresAt
@@ -157,6 +163,55 @@ router.patch('/:id', protect, restrictTo('vendor'), async (req, res, next) => {
       where: { id: req.params.id },
       data: dataToUpdate
     });
+
+    if (status === 'completed') {
+      const vendorId = order.vendorId;
+      const completedOrders = await prisma.order.count({
+        where: {
+          vendorId,
+          status: 'completed'
+        }
+      });
+
+      if (completedOrders === 10) {
+        const referral = await prisma.referral.findFirst({
+          where: {
+            referredUser: vendorId,
+            rewardGiven: false
+          }
+        });
+
+        if (referral) {
+          const referrerUser = await prisma.user.findFirst({
+            where: { referralCode: referral.referrerCode }
+          });
+
+          if (referrerUser) {
+            await prisma.wallet.update({
+              where: { userId: referrerUser.id },
+              data: { balance: { increment: 100 } }
+            });
+          } else {
+            const referrerCust = await prisma.customer.findFirst({
+              where: { referralCode: referral.referrerCode }
+            });
+
+            if (referrerCust) {
+              await prisma.wallet.update({
+                where: { customerId: referrerCust.id },
+                data: { balance: { increment: 100 } }
+              });
+            }
+          }
+
+          await prisma.referral.update({
+            where: { id: referral.id },
+            data: { rewardGiven: true }
+          });
+        }
+      }
+    }
+
     res.status(200).json({ success: true, data: order });
   } catch (error) {
     next(error);

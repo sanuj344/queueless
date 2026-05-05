@@ -47,6 +47,8 @@ export default function Navbar() {
                 <>
                   <Link to="/" className={navLinkClass(location.pathname === '/')}>Home</Link>
                   <Link to={menuLink} className={navLinkClass(location.pathname === '/menu')}>Menu</Link>
+                  <Link to="/wallet" className={navLinkClass(location.pathname === '/wallet')}>Wallet</Link>
+                  <Link to="/refer" className={navLinkClass(location.pathname === '/refer')}>Referral</Link>
                   <button 
                     onClick={() => {
                       const lastOrderId = localStorage.getItem('ql_last_order_id');
@@ -61,6 +63,8 @@ export default function Navbar() {
                 <>
                   <Link to="/vendor/dashboard" className={navLinkClass(location.pathname.includes('/vendor/dashboard'))}>Dashboard</Link>
                   <Link to="/vendor/menu" className={navLinkClass(location.pathname === '/vendor/menu')}>Manage Menu</Link>
+                  <Link to="/wallet" className={navLinkClass(location.pathname === '/wallet')}>Wallet</Link>
+                  <Link to="/refer" className={navLinkClass(location.pathname === '/refer')}>Referral</Link>
                 </>
               ) : role === 'admin' ? (
                 <Link to="/admin/dashboard" className={navLinkClass(location.pathname.includes('dashboard'))}>Dashboard</Link>
@@ -114,6 +118,18 @@ export default function Navbar() {
                         className="block px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                       >
                         📋 View All Orders
+                      </Link>
+                      <Link
+                        to="/wallet"
+                        className="block px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                      >
+                        💳 My Wallet
+                      </Link>
+                      <Link
+                        to="/refer"
+                        className="block px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                      >
+                        🎁 Refer & Earn
                       </Link>
                       <button
                         onClick={() => {

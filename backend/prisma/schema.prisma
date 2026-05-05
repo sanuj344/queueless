@@ -32,16 +32,22 @@ model User {
   orders            Order[]
   complaints        Complaint[]
   reviews           Review[]
+  referralCode      String?  @unique
+  referredBy        String?
+  wallet            Wallet?
 }
 
 model Customer {
-  id         String      @id @default(uuid())
-  name       String
-  phone      String      @unique
-  createdAt  DateTime    @default(now())
-  orders     Order[]
-  complaints Complaint[]
-  reviews    Review[]
+  id           String      @id @default(uuid())
+  name         String
+  phone        String      @unique
+  createdAt    DateTime    @default(now())
+  orders       Order[]
+  complaints   Complaint[]
+  reviews      Review[]
+  wallet       Wallet?
+  referralCode String?     @unique
+  referredBy   String?
 }
 
 model MenuItem {
@@ -66,7 +72,11 @@ model Order {
   vendor        User        @relation(fields: [vendorId], references: [id])
   items         Json
   totalAmount   Float
+  platformFee   Float       @default(0)
+  finalAmount   Float       @default(0)
   status        String      @default("pending")
+  paymentMethod String      @default("cash")
+  paymentStatus String      @default("pending")
   createdAt     DateTime    @default(now())
   complaints    Complaint[]
   reviewGiven   Boolean     @default(false)
@@ -76,6 +86,24 @@ model Order {
   acceptedAt    DateTime?
   preparingAt   DateTime?
   readyAt       DateTime?
+}
+
+model Wallet {
+  id         String    @id @default(uuid())
+  customerId String?   @unique
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  userId     String?   @unique
+  user       User?     @relation(fields: [userId], references: [id])
+  balance    Float     @default(500)
+  createdAt  DateTime  @default(now())
+}
+
+model Referral {
+  id           String   @id @default(uuid())
+  referrerCode String
+  referredUser String
+  rewardGiven  Boolean  @default(false)
+  createdAt    DateTime @default(now())
 }
 
 model Complaint {

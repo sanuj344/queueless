@@ -20,6 +20,7 @@ const customerRoutes = require('./routes/customer.routes');
 const complaintRoutes = require('./routes/complaint.routes');
 const reviewRoutes = require('./routes/review.routes');
 const referralRoutes = require('./routes/referral.routes');
+const paymentRoutes = require('./routes/payment.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/vendor/menu', menuVendorRoutes);
@@ -31,7 +32,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/customer', customerRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/reviews', reviewRoutes);
-app.use('/api/referrals', referralRoutes);
+app.use('/api/referral', referralRoutes);
+app.use('/api/payment', paymentRoutes);
 
 // Catch undefined routes
 app.use((req, res, next) => {

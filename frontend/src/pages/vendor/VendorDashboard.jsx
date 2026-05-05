@@ -23,7 +23,7 @@ export default function VendorDashboard() {
       const newOrders = res.data.data;
       
       // Sound notification for new orders
-      const pendingCount = newOrders.filter(o => o.status === 'pending').length;
+      const pendingCount = newOrders.filter(o => ['pending', 'placed'].includes(o.status)).length;
       if (pendingCount > prevOrdersCount.current && audioRef.current) {
         audioRef.current.play().catch(e => console.log('Audio play failed', e));
       }
@@ -57,7 +57,11 @@ export default function VendorDashboard() {
     }
 
     const interval = setInterval(fetchOrders, 5000);
-    return () => clearInterval(interval);
+    window.addEventListener('orderPlaced', fetchOrders);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('orderPlaced', fetchOrders);
+    };
   }, []);
 
   const handleCloseInstructions = () => {
@@ -79,7 +83,7 @@ export default function VendorDashboard() {
     }
   };
 
-  const pendingOrders = orders.filter((o) => o.status === 'pending');
+  const pendingOrders = orders.filter((o) => ['pending', 'placed'].includes(o.status));
   const activeOrders = orders.filter((o) => ['accepted', 'preparing', 'ready'].includes(o.status));
   const completedOrders = orders.filter((o) => ['completed', 'cancelled'].includes(o.status));
 
@@ -307,6 +311,8 @@ function OrderCard({ order, children }) {
           <p className="text-sm font-black text-[#d4ff00]">{formatCurrency(order.totalAmount)}</p>
           <p className="text-[10px] text-zinc-500 mt-1">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
           <p className="text-[10px] text-zinc-500 mt-1 font-bold">⏱ Delivery: {order.deliveryTime || 'ASAP'}</p>
+          <p className="text-[10px] text-emerald-500 font-bold mt-1">Paid (Online): {formatCurrency(order.platformFee || 0)}</p>
+          <p className="text-[10px] text-zinc-400 font-bold">Collect at Stall: {formatCurrency(order.totalAmount)}</p>
           {['placed', 'pending', 'accepted', 'preparing'].includes(order.status) && (
             <p className="text-xs font-black mt-1 text-red-500 animate-pulse">
               ⏳ {Math.floor(getStageTimeLeft() / 60)}m {getStageTimeLeft() % 60}s left

@@ -21,6 +21,7 @@ const registerSchema = z.object({
     accountNumber: z.string().optional(),
     ifscCode: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, 'Invalid IFSC format').optional(),
     accountHolderName: z.string().optional(),
+    referralCode: z.string().optional().nullable(),
   }).refine((data) => {
     if (data.role === 'vendor') {
       return (

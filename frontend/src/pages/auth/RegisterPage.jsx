@@ -23,7 +23,8 @@ export default function RegisterPage() {
     ifscCode: '',
     accountHolderName: '',
     hasGst: false,
-    gstNumber: ''
+    gstNumber: '',
+    referralCode: ''
   });
 
   const [error, setError] = useState('');
@@ -252,6 +253,18 @@ export default function RegisterPage() {
                           />
                         </div>
                       )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-400 mb-1">Referral Code (Optional)</label>
+                      <input
+                        name="referralCode"
+                        type="text"
+                        placeholder="Enter Referral Code (Optional)"
+                        value={formData.referralCode}
+                        onChange={handleChange}
+                        className="appearance-none block w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d4ff00]/20 focus:border-[#d4ff00] transition-all bg-white dark:bg-zinc-900/50 text-zinc-900 dark:text-white sm:text-sm font-mono uppercase"
+                      />
                     </div>
                   </>
                 )}

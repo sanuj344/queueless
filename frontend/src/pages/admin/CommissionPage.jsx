@@ -1,15 +1,27 @@
-import { adminCommissions } from '../../data/adminMockData';
+import { useState, useEffect } from 'react';
 import AdminLayout from '../../layouts/AdminLayout';
 import Card from '../../components/Card';
 import Badge from '../../components/Badge';
-import Button from '../../components/Button';
+import api from '../../utils/api';
 
 export default function CommissionPage() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get('/admin/commission')
+      .then(res => {
+        setData(res.data.data);
+      })
+      .catch(err => console.error('Failed to fetch commission data:', err))
+      .finally(() => setLoading(false));
+  }, []);
+
   const stats = [
-    { label: 'Total Commission', value: '₹1,24,500', icon: '💰' },
-    { label: "Today's", value: '₹2,450', icon: '📅' },
-    { label: 'This Month', value: '₹34,800', icon: '📊' },
-    { label: 'Pending', value: '₹8,250', icon: '⏳' },
+    { label: 'Total Commission', value: `₹${(data?.totalCommission || 0).toLocaleString()}`, icon: '💰' },
+    { label: "Today's", value: `₹${(data?.todayCommission || 0).toLocaleString()}`, icon: '📅' },
+    { label: 'This Month', value: `₹${(data?.monthlyCommission || 0).toLocaleString()}`, icon: '📊' },
+    { label: 'Pending', value: `₹${(data?.pending || 0).toLocaleString()}`, icon: '⏳' },
   ];
 
   return (
@@ -50,25 +62,33 @@ export default function CommissionPage() {
                 <tr className="bg-zinc-950/50 text-[10px] uppercase font-bold text-zinc-500 tracking-widest">
                   <th className="px-6 py-4">Vendor</th>
                   <th className="px-6 py-4">Total Sales</th>
-                  <th className="px-6 py-4">Rate (%)</th>
+                  <th className="px-6 py-4">Orders</th>
                   <th className="px-6 py-4">Commission</th>
                   <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Earned On</th>
+                  <th className="px-6 py-4">Note</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800/50">
-                {adminCommissions.map((comm, idx) => (
+                {loading ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-10 text-center text-zinc-500 text-sm">Loading data...</td>
+                  </tr>
+                ) : data?.vendors?.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-10 text-center text-zinc-500 text-sm">No commission data available.</td>
+                  </tr>
+                ) : data?.vendors?.map((vendor, idx) => (
                   <tr key={idx} className="hover:bg-white/5 transition-colors group">
-                    <td className="px-6 py-4 text-sm font-semibold">{comm.vendor}</td>
-                    <td className="px-6 py-4 text-sm text-zinc-400">₹{comm.totalSales.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-sm text-zinc-500">{comm.rate}%</td>
-                    <td className="px-6 py-4 text-sm font-bold text-[#d4ff00]">₹{comm.amount.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-sm font-semibold text-white">{vendor.vendorName}</td>
+                    <td className="px-6 py-4 text-sm text-zinc-400">₹{vendor.totalSales.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-sm text-zinc-500">{vendor.orders} orders</td>
+                    <td className="px-6 py-4 text-sm font-bold text-[#d4ff00]">₹{vendor.commission.toLocaleString()}</td>
                     <td className="px-6 py-4">
-                      <Badge variant={comm.status === 'paid' ? 'green' : 'orange'}>
-                        {comm.status}
+                      <Badge variant="green">
+                        Paid
                       </Badge>
                     </td>
-                    <td className="px-6 py-4 text-xs text-zinc-500">{comm.date}</td>
+                    <td className="px-6 py-4 text-xs text-zinc-500 italic">Aggregated Real-time</td>
                   </tr>
                 ))}
               </tbody>

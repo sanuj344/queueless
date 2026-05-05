@@ -30,6 +30,27 @@ const registerUser = async (data) => {
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
+  const { generateReferralCode } = require('../utils/referral');
+  const userReferralCode = generateReferralCode();
+
+  let referredByCode = null;
+  if (data.referralCode) {
+    const inputCode = data.referralCode.trim().toUpperCase();
+    const referrerUser = await prisma.user.findFirst({
+      where: { referralCode: { equals: inputCode, mode: 'insensitive' } }
+    });
+    if (referrerUser) {
+      referredByCode = inputCode;
+    } else {
+      const referrerCust = await prisma.customer.findFirst({
+        where: { referralCode: { equals: inputCode, mode: 'insensitive' } }
+      });
+      if (referrerCust) {
+        referredByCode = inputCode;
+      }
+    }
+  }
+
 
   const user = await prisma.user.create({
     data: {
@@ -44,6 +65,11 @@ const registerUser = async (data) => {
       accountNumber,
       ifscCode,
       accountHolderName,
+      referralCode: userReferralCode,
+      referredBy: referredByCode || null,
+      wallet: {
+        create: { balance: 0.0 }
+      }
     },
     select: {
       id: true,
@@ -54,9 +80,19 @@ const registerUser = async (data) => {
       address: true,
       averagePrepTime: true,
       role: true,
+      referralCode: true,
       createdAt: true,
     },
   });
+
+  if (referredByCode) {
+    await prisma.referral.create({
+      data: {
+        referrerCode: referredByCode,
+        referredUser: user.id
+      }
+    });
+  }
 
   return user;
 };

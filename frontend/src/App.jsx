@@ -27,6 +27,7 @@ import VendorMenuPage from './pages/vendor/VendorMenuPage';
 import CreateMenuPage from './pages/vendor/CreateMenuPage';
 import CartPage from './pages/CartPage';
 import ReferVendorPage from './pages/ReferVendorPage';
+import WalletPage from './pages/customer/WalletPage';
 import CustomerHub from './pages/CustomerHub';
 import AboutPage from './pages/AboutPage';
 import CustomerProtectedRoute from './components/CustomerProtectedRoute';
@@ -74,12 +75,27 @@ export default function App() {
                   <Route path="/your-orders" element={<CustomerOrdersPage />} />
                   <Route path="/help-desk" element={<HelpDeskPage />} />
 
-                  {/* Real Explore Pages & Fallbacks */}
                   <Route
                     path="/refer-vendor"
                     element={
                       <CustomerProtectedRoute>
                         <ReferVendorPage />
+                      </CustomerProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/refer"
+                    element={
+                      <CustomerProtectedRoute>
+                        <ReferVendorPage />
+                      </CustomerProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/wallet"
+                    element={
+                      <CustomerProtectedRoute>
+                        <WalletPage />
                       </CustomerProtectedRoute>
                     }
                   />

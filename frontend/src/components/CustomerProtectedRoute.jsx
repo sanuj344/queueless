@@ -1,13 +1,15 @@
 import { Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const CustomerProtectedRoute = ({ children }) => {
-  const customer = JSON.parse(localStorage.getItem('ql_customer'));
+  const { user, isAuthenticated } = useAuth();
+  const customer = JSON.parse(localStorage.getItem('ql_customer') || '{}');
 
-  if (!customer || !customer.phone) {
-    return <Navigate to="/" replace />;
+  if (isAuthenticated || user || customer.phone) {
+    return children;
   }
 
-  return children;
+  return <Navigate to="/" replace />;
 };
 
 export default CustomerProtectedRoute;

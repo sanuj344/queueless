@@ -54,7 +54,7 @@ router.get('/dashboard', async (req, res, next) => {
         vendorMap[vendorId].cancelled += 1;
       }
 
-      commission += order.totalAmount * 0.1;
+      commission += order.platformFee || (order.totalAmount * 0.1);
     });
 
     const allVendors = await prisma.user.findMany({
@@ -252,6 +252,129 @@ router.get('/referrals', async (req, res, next) => {
     res.status(200).json({ success: true, data: referrals });
   } catch (error) {
     next(error);
+  }
+});
+
+router.get('/commission', async (req, res, next) => {
+  try {
+    const orders = await prisma.order.findMany({
+      where: {
+        status: "completed"
+      },
+      include: {
+        vendor: true
+      }
+    });
+
+    let totalCommission = 0;
+    let todayCommission = 0;
+    let monthlyCommission = 0;
+
+    const vendorMap = {};
+
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+
+    orders.forEach(order => {
+      // commission (platformFee)
+      const commission = order.platformFee || 0;
+
+      totalCommission += commission;
+
+      const orderDate = new Date(order.createdAt);
+
+      if (orderDate.toDateString() === today.toDateString()) {
+        todayCommission += commission;
+      }
+
+      if (orderDate.getMonth() === currentMonth && orderDate.getFullYear() === currentYear) {
+        monthlyCommission += commission;
+      }
+
+      // vendor-wise aggregation
+      if (!vendorMap[order.vendorId]) {
+        vendorMap[order.vendorId] = {
+          vendorName: order.vendor?.outletName || order.vendor?.name || "Vendor",
+          totalSales: 0,
+          commission: 0,
+          orders: 0
+        };
+      }
+
+      vendorMap[order.vendorId].totalSales += order.totalAmount;
+      vendorMap[order.vendorId].commission += commission;
+      vendorMap[order.vendorId].orders += 1;
+    });
+
+    const vendorList = Object.values(vendorMap);
+
+    res.json({
+      success: true,
+      data: {
+        totalCommission,
+        todayCommission,
+        monthlyCommission,
+        pending: 0, 
+        vendors: vendorList
+      }
+    });
+  } catch (err) {
+    console.error("Commission Error:", err);
+    res.status(500).json({ success: false, message: "Failed to fetch commission data" });
+  }
+});
+
+router.get('/analytics', async (req, res, next) => {
+  try {
+    const orders = await prisma.order.findMany();
+
+    let totalRevenue = 0;
+    let completed = 0;
+    let pending = 0;
+    let cancelled = 0;
+
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const revenueByDayMap = {};
+    days.forEach(d => revenueByDayMap[d] = 0);
+
+    orders.forEach(order => {
+      const amount = order.totalAmount || 0;
+      totalRevenue += amount;
+
+      const date = new Date(order.createdAt);
+      const dayName = days[date.getDay()];
+      revenueByDayMap[dayName] += amount;
+
+      if (order.status === "completed") completed++;
+      else if (order.status === "cancelled") cancelled++;
+      else pending++; // everything else is pending/placed
+    });
+
+    const revenueChart = days.map(d => ({ name: d, value: revenueByDayMap[d] }));
+
+    const totalOrders = orders.length;
+    const avgOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
+
+    const totalCustomers = await prisma.customer.count();
+
+    res.json({
+      success: true,
+      data: {
+        totalRevenue,
+        totalOrders,
+        totalCustomers,
+        avgOrderValue,
+        revenueChart,
+        orderStatus: [
+          { name: "Completed", value: completed, fill: '#d4ff00' },
+          { name: "Pending", value: pending, fill: '#a1a1aa' },
+          { name: "Cancelled", value: cancelled, fill: '#ef4444' }
+        ]
+      }
+    });
+  } catch (err) {
+    next(err);
   }
 });
 

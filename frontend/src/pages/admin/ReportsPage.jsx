@@ -1,7 +1,8 @@
-import { reportsData } from '../../data/adminMockData';
+import { useState, useEffect } from 'react';
 import AdminLayout from '../../layouts/AdminLayout';
 import Card from '../../components/Card';
 import { useTheme } from '../../context/ThemeContext';
+import api from '../../utils/api';
 import { 
   ResponsiveContainer, 
   LineChart, 
@@ -17,11 +18,23 @@ import {
 
 export default function ReportsPage() {
   const { isDark } = useTheme();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get('/admin/analytics')
+      .then(res => {
+        setData(res.data.data);
+      })
+      .catch(err => console.error('Failed to fetch analytics:', err))
+      .finally(() => setLoading(false));
+  }, []);
+
   const stats = [
-    { label: 'Total Revenue', value: '₹8,24,500', icon: '💰' },
-    { label: 'Total Orders', value: '12,450', icon: '📦' },
-    { label: 'Total Customers', value: '4,850', icon: '👥' },
-    { label: 'Avg Order Value', value: '₹450', icon: '📈' },
+    { label: 'Total Revenue', value: `₹${(data?.totalRevenue || 0).toLocaleString()}`, icon: '💰' },
+    { label: 'Total Orders', value: (data?.totalOrders || 0).toLocaleString(), icon: '📦' },
+    { label: 'Total Customers', value: (data?.totalCustomers || 0).toLocaleString(), icon: '👥' },
+    { label: 'Avg Order Value', value: `₹${(data?.avgOrderValue || 0).toLocaleString()}`, icon: '📈' },
   ];
 
   const chartColors = {
@@ -31,6 +44,16 @@ export default function ReportsPage() {
     tooltipBorder: isDark ? '#27272a' : '#e4e4e7',
     primary: isDark ? '#d4ff00' : '#8cb800'
   };
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="h-[60vh] flex items-center justify-center text-zinc-500 font-medium">
+          Loading analytics...
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -55,10 +78,10 @@ export default function ReportsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Revenue Overview - Line Chart */}
           <Card className="lg:col-span-2 p-6 border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40">
-            <h2 className="text-lg font-bold text-[#8cb800] dark:text-[#d4ff00] mb-6">Revenue Overview</h2>
+            <h2 className="text-lg font-bold text-[#8cb800] dark:text-[#d4ff00] mb-6">Revenue Overview (Weekly)</h2>
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={reportsData.revenue}>
+                <LineChart data={data?.revenueChart}>
                   <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} vertical={false} />
                   <XAxis 
                     dataKey="name" 
@@ -103,13 +126,13 @@ export default function ReportsPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={reportsData.ordersStatus}
+                    data={data?.orderStatus}
                     innerRadius={60}
                     outerRadius={80}
                     paddingAngle={5}
                     dataKey="value"
                   >
-                    {reportsData.ordersStatus.map((entry, index) => (
+                    {data?.orderStatus.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />
                     ))}
                   </Pie>
@@ -123,7 +146,7 @@ export default function ReportsPage() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="mt-4 space-y-2">
-                {reportsData.ordersStatus.map((item, idx) => (
+                {data?.orderStatus.map((item, idx) => (
                   <div key={idx} className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.fill }} />
