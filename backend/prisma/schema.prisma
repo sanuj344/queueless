@@ -27,14 +27,52 @@ model User {
   hasGst            Boolean  @default(false)
   gstNumber         String?
   role              Role     @default(vendor)
+  vendorType        String   @default("food") // "food" | "salon"
   createdAt         DateTime @default(now())
   menuItems         MenuItem[]
   orders            Order[]
+  services          Service[]
+  bookings          Booking[]
   complaints        Complaint[]
   reviews           Review[]
   referralCode      String?  @unique
   referredBy        String?
   wallet            Wallet?
+}
+
+model Service {
+  id          String   @id @default(uuid())
+  vendorId    String
+  vendor      User     @relation(fields: [vendorId], references: [id])
+  name        String
+  price       Float
+  duration    Int      @default(30) // minutes
+  category    String   @default("General")
+  createdAt   DateTime @default(now())
+}
+
+model Booking {
+  id             String    @id @default(uuid())
+  vendorId       String
+  vendor         User      @relation(fields: [vendorId], references: [id])
+  customerId     String?
+  customerName   String
+  customerPhone  String
+  services       Json
+  totalAmount    Float
+  platformFee    Float     @default(0)
+  finalAmount    Float     @default(0)
+  slotTime       DateTime
+  tokenNumber    String?
+  tokenIndex     Int?
+  status         String    @default("placed") // placed, accepted, in_service, completed, cancelled
+  paymentMethod  String    @default("razorpay")
+  paymentStatus  String    @default("paid")
+  customerAction String?
+  type           String    @default("salon")
+  createdAt      DateTime  @default(now())
+  reviews        Review[]
+  reviewGiven    Boolean   @default(false)
 }
 
 model Customer {
@@ -83,6 +121,9 @@ model Order {
   reviews       Review[]
   deliveryTime  String?     @default("ASAP")
   expiresAt     DateTime?
+  tokenNumber   String?
+  tokenIndex    Int?
+  customerAction String?
   acceptedAt    DateTime?
   preparingAt   DateTime?
   readyAt       DateTime?
@@ -131,13 +172,15 @@ model Review {
 
   customerId  String
   vendorId    String
-  orderId     String
+  orderId     String?
+  bookingId   String?
 
   createdAt   DateTime @default(now())
 
-  customer    Customer @relation(fields: [customerId], references: [id])
-  vendor      User     @relation(fields: [vendorId], references: [id])
-  order       Order    @relation(fields: [orderId], references: [id])
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  vendor      User      @relation(fields: [vendorId], references: [id])
+  order       Order?    @relation(fields: [orderId], references: [id])
+  booking     Booking?  @relation(fields: [bookingId], references: [id])
 }
 
 model VendorReferral {

@@ -62,7 +62,11 @@ export default function Navbar() {
               ) : role === 'vendor' ? (
                 <>
                   <Link to="/vendor/dashboard" className={navLinkClass(location.pathname.includes('/vendor/dashboard'))}>Dashboard</Link>
-                  <Link to="/vendor/menu" className={navLinkClass(location.pathname === '/vendor/menu')}>Manage Menu</Link>
+                  {user?.vendorType === 'salon' ? (
+                    <Link to="/vendor/services" className={navLinkClass(location.pathname === '/vendor/services')}>Manage Services</Link>
+                  ) : (
+                    <Link to="/vendor/menu" className={navLinkClass(location.pathname === '/vendor/menu')}>Manage Menu</Link>
+                  )}
                   <Link to="/wallet" className={navLinkClass(location.pathname === '/wallet')}>Wallet</Link>
                   <Link to="/refer" className={navLinkClass(location.pathname === '/refer')}>Referral</Link>
                 </>

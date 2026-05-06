@@ -2,6 +2,7 @@ const express = require('express');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const prisma = require('../config/prisma');
+const { generateVendorToken } = require('../services/token.service');
 
 const router = express.Router();
 const { protect } = require('../middlewares/auth.middleware');
@@ -63,7 +64,7 @@ router.post('/verify', async (req, res, next) => {
       return res.status(400).json({ message: 'Vendor ID missing' });
     }
 
-    const { customerName, customerPhone, vendorId, items, totalAmount, platformFee, finalAmount, deliveryTime } = orderData;
+    const { customerName, customerPhone, vendorId, totalAmount, platformFee, finalAmount } = orderData;
 
     // Check if phone belongs to a vendor
     const existingVendor = await prisma.user.findFirst({
@@ -90,6 +91,46 @@ router.post('/verify', async (req, res, next) => {
       });
     }
 
+    const token = await generateVendorToken(vendorId);
+
+    // 🔀 Branch: Salon Booking vs Food Order
+    if (orderData.type === 'salon') {
+      const { services, slotTime } = orderData;
+
+      // Slot conflict check (capacity = 1 for Phase 1)
+      const slotDateTime = new Date(slotTime);
+      const existingSlot = await prisma.booking.count({
+        where: { vendorId, slotTime: slotDateTime, status: { not: 'cancelled' } }
+      });
+      if (existingSlot >= 1) {
+        return res.status(409).json({ success: false, message: 'This slot is already booked. Please choose another time.' });
+      }
+
+      const booking = await prisma.booking.create({
+        data: {
+          customerName,
+          customerPhone,
+          customerId: customer.id,
+          vendorId,
+          services,
+          totalAmount: parseFloat(totalAmount),
+          platformFee: parseFloat(platformFee || 0),
+          finalAmount: parseFloat(finalAmount || totalAmount),
+          slotTime: slotDateTime,
+          status: 'placed',
+          paymentMethod: 'razorpay',
+          paymentStatus: 'paid',
+          tokenNumber: token.tokenNumber,
+          tokenIndex: token.tokenIndex,
+          type: 'salon'
+        }
+      });
+
+      return res.json({ success: true, booking, type: 'salon' });
+    }
+
+    // 🍔 Food Order (existing logic)
+    const { items, deliveryTime } = orderData;
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     const createdOrder = await prisma.order.create({
@@ -106,7 +147,9 @@ router.post('/verify', async (req, res, next) => {
         paymentMethod: 'razorpay',
         paymentStatus: 'paid',
         deliveryTime: deliveryTime || 'ASAP',
-        expiresAt
+        expiresAt,
+        tokenNumber: token.tokenNumber,
+        tokenIndex: token.tokenIndex
       }
     });
 
@@ -233,32 +276,57 @@ router.post('/wallet-pay', async (req, res, next) => {
     // Deduct wallet balance
     await prisma.wallet.update({
       where: { customerId: userId },
-      data: {
-        balance: {
-          decrement: finalCommission
-        }
-      }
+      data: { balance: { decrement: finalCommission } }
     });
 
-    const { customerName, customerPhone, vendorId, items, totalAmount, platformFee, finalAmount, deliveryTime } = orderData;
+    const { customerName, customerPhone, vendorId, totalAmount, platformFee, finalAmount } = orderData;
+    const token = await generateVendorToken(vendorId);
 
+    // 🔀 Branch: Salon Booking vs Food Order
+    if (orderData.type === 'salon') {
+      const { services, slotTime } = orderData;
+      const slotDateTime = new Date(slotTime);
+
+      const existingSlot = await prisma.booking.count({
+        where: { vendorId, slotTime: slotDateTime, status: { not: 'cancelled' } }
+      });
+      if (existingSlot >= 1) {
+        // Refund wallet since slot is taken
+        await prisma.wallet.update({
+          where: { customerId: userId },
+          data: { balance: { increment: finalCommission } }
+        });
+        return res.status(409).json({ success: false, message: 'This slot is already booked. Please choose another time.' });
+      }
+
+      const booking = await prisma.booking.create({
+        data: {
+          customerName, customerPhone, customerId: userId, vendorId,
+          services, totalAmount: parseFloat(totalAmount),
+          platformFee: parseFloat(platformFee || 0),
+          finalAmount: parseFloat(finalAmount || totalAmount),
+          slotTime: slotDateTime, status: 'placed',
+          paymentMethod: 'wallet', paymentStatus: 'paid',
+          tokenNumber: token.tokenNumber, tokenIndex: token.tokenIndex,
+          type: 'salon'
+        }
+      });
+      return res.json({ success: true, booking, type: 'salon' });
+    }
+
+    // 🍔 Food Order
+    const { items, deliveryTime } = orderData;
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     const createdOrder = await prisma.order.create({
       data: {
-        customerName,
-        customerPhone,
-        customerId: userId,
-        vendorId,
-        items,
-        totalAmount: parseFloat(totalAmount),
+        customerName, customerPhone, customerId: userId, vendorId,
+        items, totalAmount: parseFloat(totalAmount),
         platformFee: parseFloat(platformFee || 0),
         finalAmount: parseFloat(finalAmount || totalAmount),
-        status: 'placed',
-        paymentMethod: 'wallet',
-        paymentStatus: 'paid',
-        deliveryTime: deliveryTime || 'ASAP',
-        expiresAt
+        status: 'placed', paymentMethod: 'wallet', paymentStatus: 'paid',
+        deliveryTime: deliveryTime || 'ASAP', expiresAt,
+        tokenNumber: token.tokenNumber, tokenIndex: token.tokenIndex
       }
     });
 
@@ -270,10 +338,7 @@ router.post('/wallet-pay', async (req, res, next) => {
       }
     }
 
-    res.json({
-      success: true,
-      order: createdOrder
-    });
+    res.json({ success: true, order: createdOrder });
   } catch (error) {
     console.error('Wallet payment failed:', error);
     res.status(500).json({ message: 'Wallet payment failed' });

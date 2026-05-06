@@ -91,7 +91,16 @@ router.get('/vendor', protect, restrictTo('vendor'), async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     let order = await prisma.order.findUnique({
-      where: { id: req.params.id }
+      where: { id: req.params.id },
+      include: {
+        vendor: {
+          select: {
+            mobile: true,
+            outletName: true,
+            name: true
+          }
+        }
+      }
     });
 
     if (!order) {
@@ -213,6 +222,42 @@ router.patch('/:id', protect, restrictTo('vendor'), async (req, res, next) => {
     }
 
     res.status(200).json({ success: true, data: order });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update Customer Action (Public — for 'ready' orders)
+router.post('/customer-action', async (req, res, next) => {
+  try {
+    const { orderId, action } = req.body;
+    const validActions = ['coming', 'delayed', 'contact'];
+
+    if (!validActions.includes(action)) {
+      return res.status(400).json({ success: false, message: 'Invalid action' });
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId }
+    });
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    if (order.status !== 'ready') {
+      return res.status(400).json({
+        success: false,
+        message: 'Action allowed only when order is ready'
+      });
+    }
+
+    const updated = await prisma.order.update({
+      where: { id: orderId },
+      data: { customerAction: action }
+    });
+
+    res.json({ success: true, data: updated });
   } catch (error) {
     next(error);
   }

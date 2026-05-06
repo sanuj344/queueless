@@ -1,5 +1,6 @@
 const express = require('express');
 const { protect, restrictTo } = require('../middlewares/auth.middleware');
+const prisma = require('../config/prisma');
 
 const router = express.Router();
 
@@ -15,6 +16,32 @@ router.get('/generate-qr', protect, restrictTo('vendor'), async (req, res) => {
       menuUrl: menuUrl
     }
   });
+});
+
+// GET /vendor/profile — returns full vendor profile including vendorType
+router.get('/profile', protect, restrictTo('vendor'), async (req, res, next) => {
+  try {
+    const vendor = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        mobile: true,
+        outletName: true,
+        address: true,
+        averagePrepTime: true,
+        role: true,
+        vendorType: true,
+        referralCode: true,
+        isApproved: true,
+        createdAt: true
+      }
+    });
+    res.json({ success: true, data: vendor });
+  } catch (error) {
+    next(error);
+  }
 });
 
 module.exports = router;

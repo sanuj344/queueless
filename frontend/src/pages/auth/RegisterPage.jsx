@@ -24,7 +24,8 @@ export default function RegisterPage() {
     accountHolderName: '',
     hasGst: false,
     gstNumber: '',
-    referralCode: ''
+    referralCode: '',
+    vendorType: 'food'
   });
 
   const [error, setError] = useState('');
@@ -188,6 +189,22 @@ export default function RegisterPage() {
                 {role === 'vendor' && (
                   <>
                     <div className="grid grid-cols-2 gap-4">
+                      <div className="col-span-2">
+                        <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-400 mb-2">Business Type</label>
+                        <div className="grid grid-cols-2 gap-3">
+                          {[{ value: 'food', icon: '🍔', label: 'Food Vendor' }, { value: 'salon', icon: '💇', label: 'Salon / Beauty' }].map(opt => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setFormData(prev => ({ ...prev, vendorType: opt.value }))}
+                              className={`flex flex-col items-center gap-1.5 py-3 rounded-2xl border-2 text-sm font-bold transition-all ${formData.vendorType === opt.value ? 'border-[#d4ff00] bg-[#d4ff00]/10 text-zinc-900 dark:text-white' : 'border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-600'}`}
+                            >
+                              <span className="text-xl">{opt.icon}</span>
+                              <span>{opt.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                       <div className="col-span-2">
                         <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-400 mb-1">Outlet Name</label>
                         <input

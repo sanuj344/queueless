@@ -37,6 +37,20 @@ export default function OrderStatusPage() {
     }
   };
 
+  const sendAction = async (action) => {
+    try {
+      const res = await api.post('/orders/customer-action', {
+        orderId: order.id,
+        action
+      });
+      if (res.data.success) {
+        setOrder(res.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to update action:', err);
+    }
+  };
+
   // 1. Auto-redirect to last order if no ID provided in URL
   useEffect(() => {
     if (!id) {
@@ -105,7 +119,24 @@ export default function OrderStatusPage() {
           <p className="text-zinc-500 mt-2 max-w-xs leading-relaxed">
             Vendor did not accept within the 5-minute window or cancelled the order.
           </p>
-          <div className="flex gap-3 w-full max-w-md mt-8">
+          {order.vendor?.mobile && (
+          <div className="w-full max-w-md mt-4 p-5 rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 shadow-lg text-center">
+            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-1">Need Assistance?</p>
+            <h4 className="text-sm font-bold text-zinc-900 dark:text-white mb-3">
+              Contact {order.vendor.outletName || order.vendor.name}
+            </h4>
+            <a 
+              href={`tel:${order.vendor.mobile}`}
+              className="inline-flex items-center gap-3 px-6 py-3 bg-[#d4ff00]/10 border border-[#d4ff00]/20 rounded-2xl text-[#8cb800] dark:text-[#d4ff00] font-black hover:scale-105 transition-all group"
+            >
+              <span className="text-xl group-hover:rotate-12 transition-transform">📞</span>
+              <span className="text-lg tracking-tight">{order.vendor.mobile}</span>
+            </a>
+            <p className="text-[10px] text-zinc-500 mt-3 font-medium">Tap to call vendor directly</p>
+          </div>
+        )}
+
+        <div className="flex gap-3 w-full max-w-md mt-8">
             <Link to={`/menu?vendorId=${order.vendorId}`} className="flex-1">
               <Button variant="outline" fullWidth size="lg">Order More</Button>
             </Link>
@@ -127,6 +158,12 @@ export default function OrderStatusPage() {
           <h1 className="text-3xl font-black text-zinc-900 dark:text-white">
             {currentStep < 4 ? 'Hang tight!' : currentStep === 4 ? 'Ready! 🎉' : 'Enjoy your meal!'}
           </h1>
+          {order.tokenNumber && (
+            <div className="mt-4 p-4 rounded-3xl bg-[#d4ff00]/10 border border-[#d4ff00]/20 inline-block">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#8cb800] dark:text-[#d4ff00] mb-1">Your Token</p>
+              <h2 className="text-4xl font-black text-[#8cb800] dark:text-[#d4ff00]">{order.tokenNumber}</h2>
+            </div>
+          )}
         </div>
 
         <div className="w-full max-w-md rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-6 sm:p-8 mb-8 shadow-xl">
@@ -164,6 +201,43 @@ export default function OrderStatusPage() {
           </div>
         </div>
 
+        {order.status === 'ready' && (
+          <div className="w-full max-w-md mt-6 space-y-3 px-4">
+            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest text-center mb-2">Update Vendor</h3>
+            <div className="grid grid-cols-1 gap-3">
+              <Button 
+                fullWidth 
+                variant={order.customerAction === 'coming' ? 'default' : 'outline'}
+                className={order.customerAction === 'coming' ? 'bg-emerald-500 text-white border-none' : 'border-emerald-500/30 text-emerald-500'}
+                onClick={() => sendAction('coming')}
+              >
+                {order.customerAction === 'coming' ? '✓ I am Coming' : 'I am Coming'}
+              </Button>
+              <Button 
+                fullWidth 
+                variant={order.customerAction === 'delayed' ? 'default' : 'outline'}
+                className={order.customerAction === 'delayed' ? 'bg-amber-500 text-white border-none' : 'border-amber-500/30 text-amber-500'}
+                onClick={() => sendAction('delayed')}
+              >
+                {order.customerAction === 'delayed' ? '✓ I will be Delayed' : 'I will be Delayed (5 min)'}
+              </Button>
+              <Button 
+                fullWidth 
+                variant={order.customerAction === 'contact' ? 'default' : 'outline'}
+                className={order.customerAction === 'contact' ? 'bg-blue-500 text-white border-none' : 'border-blue-500/30 text-blue-500'}
+                onClick={() => sendAction('contact')}
+              >
+                {order.customerAction === 'contact' ? '✓ Calling Vendor' : 'Contact Vendor'}
+              </Button>
+            </div>
+            {order.customerAction && (
+              <p className="text-[10px] text-center text-zinc-500 animate-pulse font-bold uppercase tracking-tighter">
+                Notification sent to vendor
+              </p>
+            )}
+          </div>
+        )}
+
         {order.status === 'completed' && !order.reviewGiven && (
           <div className="w-full max-w-md mb-6">
             <Button
@@ -189,6 +263,23 @@ export default function OrderStatusPage() {
             >
               Cancel Order
             </Button>
+          </div>
+        )}
+
+        {order.vendor?.mobile && (
+          <div className="w-full max-w-md mb-6 p-5 rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 shadow-lg text-center">
+            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-1">Need Assistance?</p>
+            <h4 className="text-sm font-bold text-zinc-900 dark:text-white mb-3">
+              Contact {order.vendor.outletName || order.vendor.name}
+            </h4>
+            <a 
+              href={`tel:${order.vendor.mobile}`}
+              className="inline-flex items-center gap-3 px-6 py-3 bg-[#d4ff00]/10 border border-[#d4ff00]/20 rounded-2xl text-[#8cb800] dark:text-[#d4ff00] font-black hover:scale-105 transition-all group"
+            >
+              <span className="text-xl group-hover:rotate-12 transition-transform">📞</span>
+              <span className="text-lg tracking-tight">{order.vendor.mobile}</span>
+            </a>
+            <p className="text-[10px] text-zinc-500 mt-3 font-medium">Tap to call vendor directly</p>
           </div>
         )}
 

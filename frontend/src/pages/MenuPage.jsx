@@ -9,6 +9,7 @@ import Button from '../components/Button';
 import QuantityStepper from '../components/QuantityStepper';
 import CartDrawer from '../components/CartDrawer';
 import Spinner from '../components/Spinner';
+import SalonBookingPage from './SalonBookingPage';
 
 function MenuItem({ item }) {
   const { addItem, increment, decrement, getItemQuantity } = useCart();
@@ -86,11 +87,16 @@ export default function MenuPage() {
         ]);
         setItems(menuRes.data.data);
         setVendorData({
+          id: vendorRes.data.data.id,
           name: vendorRes.data.data.outletName || vendorRes.data.data.name,
+          outletName: vendorRes.data.data.outletName || vendorRes.data.data.name,
+          address: vendorRes.data.data.address || '',
+          mobile: vendorRes.data.data.mobile || '',
           cuisine: vendorRes.data.data.address?.split('\n')[0] || '',
           waitTime: vendorRes.data.data.averagePrepTime || 15,
           rating: reviewsRes.data.avgRating || '0.0',
-          reviews: reviewsRes.data.totalReviews || 0
+          reviews: reviewsRes.data.totalReviews || 0,
+          vendorType: vendorRes.data.data.vendorType || 'food'
         });
       } catch {
         setError('Failed to fetch menu or store details.');
@@ -106,6 +112,11 @@ export default function MenuPage() {
       <Spinner size="lg" />
     </div>
   );
+
+  // Salon vendor → hand off to SalonBookingPage
+  if (!error && vendorData.vendorType === 'salon') {
+    return <SalonBookingPage vendor={vendorData} vendorId={vendorIdFromQuery} />;
+  }
 
   if (error || !vendorIdFromQuery) return (
     <div className="min-h-screen bg-white dark:bg-black pt-28 px-4 flex flex-col items-center text-center">

@@ -30,6 +30,8 @@ import ReferVendorPage from './pages/ReferVendorPage';
 import WalletPage from './pages/customer/WalletPage';
 import CustomerHub from './pages/CustomerHub';
 import AboutPage from './pages/AboutPage';
+import BookingStatusPage from './pages/BookingStatusPage';
+import VendorServicesPage from './pages/vendor/VendorServicesPage';
 import CustomerProtectedRoute from './components/CustomerProtectedRoute';
 import TermsPage from './pages/legal/TermsPage';
 import PrivacyPage from './pages/legal/PrivacyPage';
@@ -72,6 +74,8 @@ export default function App() {
                   <Route path="/cart" element={<CartPage />} />
                   <Route path="/order-status" element={<OrderStatusPage />} />
                   <Route path="/order-status/:id" element={<OrderStatusPage />} />
+                  <Route path="/booking-status" element={<BookingStatusPage />} />
+                  <Route path="/booking-status/:id" element={<BookingStatusPage />} />
                   <Route path="/your-orders" element={<CustomerOrdersPage />} />
                   <Route path="/help-desk" element={<HelpDeskPage />} />
 
@@ -209,6 +213,14 @@ export default function App() {
                     element={
                       <ProtectedRoute roleRequired="vendor">
                         <CreateMenuPage />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/vendor/services" 
+                    element={
+                      <ProtectedRoute roleRequired="vendor">
+                        <VendorServicesPage />
                       </ProtectedRoute>
                     } 
                   />

@@ -13,6 +13,8 @@ router.get('/:id', async (req, res, next) => {
         outletName: true,
         address: true,
         averagePrepTime: true,
+        mobile: true,
+        vendorType: true,
         role: true
       }
     });

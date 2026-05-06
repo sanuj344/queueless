@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/Button';
 import Card from '../../components/Card';
 import { formatCurrency } from '../../utils/formatCurrency';
@@ -7,8 +8,12 @@ import VendorInstructionsModal from '../../components/VendorInstructionsModal';
 import Spinner from '../../components/Spinner';
 
 export default function VendorDashboard() {
-  const [activeTab, setActiveTab] = useState('orders');
+  const { user, setUser } = useAuth();
+  const [vendorType, setVendorType] = useState(user?.vendorType || 'food');
+  const isSalon = vendorType === 'salon';
+  const [activeTab, setActiveTab] = useState(user?.vendorType === 'salon' ? 'bookings' : 'orders');
   const [orders, setOrders] = useState([]);
+  const [bookings, setBookings] = useState([]);
   const [qrData, setQrData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -16,6 +21,25 @@ export default function VendorDashboard() {
   
   const audioRef = useRef(null);
   const prevOrdersCount = useRef(0);
+
+  // Fetch fresh vendor profile so vendorType is always correct
+  // (covers vendors who logged in before the field was added)
+  useEffect(() => {
+    const syncProfile = async () => {
+      try {
+        const res = await api.get('/vendor/profile');
+        const freshVendorType = res.data.data?.vendorType || 'food';
+        setVendorType(freshVendorType);
+        // Also patch the stored user so Navbar updates too
+        if (setUser) {
+          setUser(prev => prev ? { ...prev, vendorType: freshVendorType } : prev);
+        }
+      } catch (e) {
+        // Non-critical — fall back to localStorage value
+      }
+    };
+    syncProfile();
+  }, []);
 
   const fetchOrders = async () => {
     try {
@@ -46,23 +70,33 @@ export default function VendorDashboard() {
     }
   };
 
+  const fetchBookings = async () => {
+    try {
+      const res = await api.get('/bookings/vendor');
+      setBookings(res.data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch bookings');
+    }
+  };
+
   useEffect(() => {
     fetchOrders();
     fetchQr();
+    if (isSalon) fetchBookings();
     
-    // Check if instructions should be shown
     const seen = localStorage.getItem('ql_instructions_seen');
-    if (!seen) {
-      setShowInstructions(true);
-    }
+    if (!seen) setShowInstructions(true);
 
-    const interval = setInterval(fetchOrders, 5000);
+    const interval = setInterval(() => {
+      fetchOrders();
+      if (isSalon) fetchBookings();
+    }, 5000);
     window.addEventListener('orderPlaced', fetchOrders);
     return () => {
       clearInterval(interval);
       window.removeEventListener('orderPlaced', fetchOrders);
     };
-  }, []);
+  }, [isSalon]);
 
   const handleCloseInstructions = () => {
     setShowInstructions(false);
@@ -83,9 +117,11 @@ export default function VendorDashboard() {
     }
   };
 
-  const pendingOrders = orders.filter((o) => ['pending', 'placed'].includes(o.status));
-  const activeOrders = orders.filter((o) => ['accepted', 'preparing', 'ready'].includes(o.status));
-  const completedOrders = orders.filter((o) => ['completed', 'cancelled'].includes(o.status));
+  const sortedOrders = [...orders].sort((a, b) => (a.tokenIndex || 0) - (b.tokenIndex || 0));
+
+  const pendingOrders = sortedOrders.filter((o) => ['pending', 'placed'].includes(o.status));
+  const activeOrders = sortedOrders.filter((o) => ['accepted', 'preparing', 'ready'].includes(o.status));
+  const completedOrders = sortedOrders.filter((o) => ['completed', 'cancelled'].includes(o.status));
 
   if (loading && activeTab === 'orders') return (
     <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
@@ -99,12 +135,22 @@ export default function VendorDashboard() {
 
       {/* Tabs */}
       <div className="max-w-7xl mx-auto flex gap-4 mb-8">
-        <button 
-          onClick={() => setActiveTab('orders')}
-          className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'orders' ? 'bg-[#d4ff00] text-black shadow-lg shadow-[#d4ff00]/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-white'}`}
-        >
-          Live Orders
-        </button>
+        {!isSalon && (
+          <button 
+            onClick={() => setActiveTab('orders')}
+            className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'orders' ? 'bg-[#d4ff00] text-black shadow-lg shadow-[#d4ff00]/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-white'}`}
+          >
+            Live Orders
+          </button>
+        )}
+        {isSalon && (
+          <button 
+            onClick={() => setActiveTab('bookings')}
+            className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'bookings' ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-white'}`}
+          >
+            Bookings
+          </button>
+        )}
         <button 
           onClick={() => setActiveTab('qr')}
           className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'qr' ? 'bg-[#d4ff00] text-black shadow-lg shadow-[#d4ff00]/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-white'}`}
@@ -187,6 +233,71 @@ export default function VendorDashboard() {
               </div>
             </div>
           </div>
+        </div>
+      ) : activeTab === 'bookings' ? (
+        <div className="max-w-7xl mx-auto">
+          <h2 className="text-xl font-black mb-6 text-zinc-900 dark:text-white">Salon Bookings</h2>
+          {bookings.length === 0 ? (
+            <div className="text-center py-20 text-zinc-400">
+              <div className="text-5xl mb-4">💇</div>
+              <p className="font-bold">No bookings yet.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {bookings.map(booking => {
+                const slot = new Date(booking.slotTime).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+                return (
+                  <div key={booking.id} className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${
+                        booking.status === 'placed' ? 'border-amber-500/30 text-amber-500 bg-amber-500/10' :
+                        booking.status === 'accepted' ? 'border-blue-500/30 text-blue-500 bg-blue-500/10' :
+                        booking.status === 'in_service' ? 'border-purple-500/30 text-purple-500 bg-purple-500/10' :
+                        booking.status === 'completed' ? 'border-emerald-500/30 text-emerald-500 bg-emerald-500/10' :
+                        'border-red-500/30 text-red-500 bg-red-500/10'
+                      }`}>{booking.status.replace('_', ' ')}</span>
+                      {booking.tokenNumber && <span className="text-[10px] font-black text-zinc-500">Token: {booking.tokenNumber}</span>}
+                    </div>
+                    <div>
+                      <p className="font-black text-zinc-900 dark:text-white">{booking.customerName}</p>
+                      <p className="text-xs text-zinc-500 font-mono">{booking.customerPhone}</p>
+                    </div>
+                    <p className="text-xs font-bold text-purple-600 dark:text-purple-400">📅 {slot}</p>
+                    {Array.isArray(booking.services) && (
+                      <div className="text-xs text-zinc-500 space-y-0.5">
+                        {booking.services.map((s, i) => <p key={i}>✂️ {s.name} — ₹{s.price}</p>)}
+                      </div>
+                    )}
+                    {booking.customerAction && (
+                      <div className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs border border-zinc-200 dark:border-zinc-700">
+                        {booking.customerAction === 'coming' && '🚗 Coming'}
+                        {booking.customerAction === 'delayed' && '⏰ Delayed'}
+                        {booking.customerAction === 'contact' && '📞 Contact'}
+                      </div>
+                    )}
+                    {booking.status === 'placed' && (
+                      <button onClick={async () => { await api.patch(`/bookings/${booking.id}`, { status: 'accepted' }); fetchBookings(); }}
+                        className="w-full py-2 text-xs font-bold bg-[#d4ff00] text-black rounded-xl hover:bg-[#c0e600] transition-all">
+                        Accept Booking
+                      </button>
+                    )}
+                    {booking.status === 'accepted' && (
+                      <button onClick={async () => { await api.patch(`/bookings/${booking.id}`, { status: 'in_service' }); fetchBookings(); }}
+                        className="w-full py-2 text-xs font-bold bg-purple-500 text-white rounded-xl hover:bg-purple-600 transition-all">
+                        Start Service
+                      </button>
+                    )}
+                    {booking.status === 'in_service' && (
+                      <button onClick={async () => { await api.patch(`/bookings/${booking.id}`, { status: 'completed' }); fetchBookings(); }}
+                        className="w-full py-2 text-xs font-bold bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all">
+                        Mark Completed
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       ) : (
         <div className="max-w-xl mx-auto">
@@ -302,6 +413,11 @@ function OrderCard({ order, children }) {
              <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${statusColors[order.status]}`}>
                {order.status}
              </span>
+             {order.tokenNumber && (
+               <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                 Token: {order.tokenNumber}
+               </span>
+             )}
              <span className="text-[10px] font-bold text-zinc-600">ID: {order.id.slice(0, 8)}</span>
           </div>
           <h4 className="font-black text-zinc-900 dark:text-white truncate">{order.customerName}</h4>
@@ -313,10 +429,19 @@ function OrderCard({ order, children }) {
           <p className="text-[10px] text-zinc-500 mt-1 font-bold">⏱ Delivery: {order.deliveryTime || 'ASAP'}</p>
           <p className="text-[10px] text-emerald-500 font-bold mt-1">Paid (Online): {formatCurrency(order.platformFee || 0)}</p>
           <p className="text-[10px] text-zinc-400 font-bold">Collect at Stall: {formatCurrency(order.totalAmount)}</p>
-          {['placed', 'pending', 'accepted', 'preparing'].includes(order.status) && (
+          {['placed', 'pending', 'accepted', 'preparing', 'ready'].includes(order.status) && (
             <p className="text-xs font-black mt-1 text-red-500 animate-pulse">
               ⏳ {Math.floor(getStageTimeLeft() / 60)}m {getStageTimeLeft() % 60}s left
             </p>
+          )}
+          {order.customerAction && (
+             <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
+               <span className="text-xs">
+                 {order.customerAction === 'coming' && '🚗 Coming'}
+                 {order.customerAction === 'delayed' && '⏰ Delayed'}
+                 {order.customerAction === 'contact' && '📞 Contact'}
+               </span>
+             </div>
           )}
         </div>
       </div>

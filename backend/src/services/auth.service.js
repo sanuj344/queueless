@@ -7,7 +7,8 @@ const registerUser = async (data) => {
   const { 
     name, email, mobile, password, role,
     outletName, address, averagePrepTime,
-    accountNumber, ifscCode, accountHolderName 
+    accountNumber, ifscCode, accountHolderName,
+    vendorType
   } = data;
 
   if (role === 'vendor' && (
@@ -67,6 +68,7 @@ const registerUser = async (data) => {
       accountHolderName,
       referralCode: userReferralCode,
       referredBy: referredByCode || null,
+      vendorType: vendorType || 'food',
       wallet: {
         create: { balance: 0.0 }
       }
@@ -80,6 +82,7 @@ const registerUser = async (data) => {
       address: true,
       averagePrepTime: true,
       role: true,
+      vendorType: true,
       referralCode: true,
       createdAt: true,
     },
@@ -128,6 +131,8 @@ const loginUser = async (data) => {
       email: user.email,
       mobile: user.mobile,
       role: user.role,
+      vendorType: user.vendorType,
+      outletName: user.outletName,
       createdAt: user.createdAt,
     },
   };
