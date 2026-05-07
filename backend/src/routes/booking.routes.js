@@ -4,11 +4,45 @@ const { protect, restrictTo } = require('../middlewares/auth.middleware');
 
 const router = express.Router();
 
+// GET /bookings/vendor/:vendorId/booked-slots — fetch taken slots for a date
+router.get('/vendor/:vendorId/booked-slots', async (req, res, next) => {
+  try {
+    const { date } = req.query;
+    if (!date) return res.status(400).json({ success: false, message: 'Date required' });
+
+    const startDate = new Date(date);
+    const endDate = new Date(date);
+    endDate.setDate(endDate.getDate() + 1);
+
+    const bookings = await prisma.booking.findMany({
+      where: {
+        vendorId: req.params.vendorId,
+        slotTime: {
+          gte: startDate,
+          lt: endDate
+        },
+        status: { not: 'cancelled' }
+      },
+      select: { slotTime: true }
+    });
+
+    const bookedSlots = bookings.map(b => {
+      const d = new Date(b.slotTime);
+      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    });
+
+    res.json({ success: true, data: bookedSlots });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // GET /bookings/vendor — vendor's bookings (protected)
 router.get('/vendor', protect, restrictTo('vendor'), async (req, res, next) => {
   try {
     const bookings = await prisma.booking.findMany({
       where: { vendorId: req.user.id },
+      include: { stylist: true },
       orderBy: { slotTime: 'asc' }
     });
     res.json({ success: true, data: bookings });
@@ -25,7 +59,8 @@ router.get('/:id', async (req, res, next) => {
       include: {
         vendor: {
           select: { mobile: true, outletName: true, name: true }
-        }
+        },
+        stylist: true
       }
     });
     if (!booking) {
@@ -66,11 +101,11 @@ router.patch('/:id/cancel', async (req, res, next) => {
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found' });
     }
-    if (new Date() >= new Date(booking.slotTime)) {
-      return res.status(400).json({ success: false, message: 'Cannot cancel after service has started' });
+    if (booking.status !== 'placed') {
+      return res.status(400).json({ success: false, message: 'Cannot cancel after booking is accepted or processed' });
     }
-    if (['completed', 'cancelled'].includes(booking.status)) {
-      return res.status(400).json({ success: false, message: 'Booking already finalised' });
+    if (new Date() >= new Date(booking.slotTime)) {
+      return res.status(400).json({ success: false, message: 'Cannot cancel after service time' });
     }
     const updated = await prisma.booking.update({
       where: { id: req.params.id },
@@ -82,17 +117,58 @@ router.patch('/:id/cancel', async (req, res, next) => {
   }
 });
 
+// PATCH /bookings/:id/arrived — customer marking arrival
+router.patch('/:id/arrived', async (req, res, next) => {
+  try {
+    const updated = await prisma.booking.update({
+      where: { id: req.params.id },
+      data: { hasArrived: true }
+    });
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /bookings/:id/pay — vendor marking payment at salon
+router.patch('/:id/pay', protect, restrictTo('vendor'), async (req, res, next) => {
+  try {
+    const updated = await prisma.booking.update({
+      where: { id: req.params.id },
+      data: { paymentStatus: 'paid' }
+    });
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // PATCH /bookings/:id — vendor updates booking status (protected)
 router.patch('/:id', protect, restrictTo('vendor'), async (req, res, next) => {
   try {
     const { status } = req.body;
+    
+    if (req.body.stylistId) {
+      return res.status(400).json({ success: false, message: 'Stylist cannot be changed after booking' });
+    }
+
     const validStatuses = ['accepted', 'in_service', 'completed', 'cancelled'];
-    if (!validStatuses.includes(status)) {
+    if (status && !validStatuses.includes(status)) {
       return res.status(400).json({ success: false, message: 'Invalid status' });
     }
+
+    const updateData = {};
+    if (status) updateData.status = status;
+    
+    if (status === 'in_service') {
+      updateData.serviceStartTime = new Date();
+    } else if (status === 'completed') {
+      updateData.serviceEndTime = new Date();
+    }
+
     const booking = await prisma.booking.update({
       where: { id: req.params.id },
-      data: { status }
+      data: updateData
     });
     res.json({ success: true, data: booking });
   } catch (error) {

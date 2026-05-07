@@ -15,7 +15,8 @@ router.get('/:id', async (req, res, next) => {
         averagePrepTime: true,
         mobile: true,
         vendorType: true,
-        role: true
+        role: true,
+        stylists: true
       }
     });
 
@@ -24,6 +25,38 @@ router.get('/:id', async (req, res, next) => {
     }
 
     res.status(200).json({ success: true, data: vendor });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/:id/available-stylists', async (req, res, next) => {
+  try {
+    const { id: vendorId } = req.params;
+    const { slotTime } = req.query;
+
+    if (!slotTime) return res.status(400).json({ success: false, message: 'slotTime required' });
+
+    const stylists = await prisma.stylist.findMany({
+      where: { vendorId }
+    });
+
+    const booked = await prisma.booking.findMany({
+      where: {
+        vendorId,
+        slotTime: new Date(slotTime),
+        status: { not: 'cancelled' }
+      },
+      select: { stylistId: true }
+    });
+
+    const bookedIds = booked.map(b => b.stylistId).filter(Boolean);
+    const available = stylists.map(s => ({
+      ...s,
+      isBooked: bookedIds.includes(s.id)
+    }));
+
+    res.json({ success: true, data: available });
   } catch (error) {
     next(error);
   }

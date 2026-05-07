@@ -38,18 +38,20 @@ export default function CustomerLoginModal({ isOpen, onClose }) {
     try {
       // 1. Start with name from form (if any) or fallback
       let finalName = info.name.trim() || 'Guest User';
-      
-      // 2. Try to fetch real name from DB
+      let customerId = null;
+      // 2. Try to fetch real name and ID from DB
       try {
         const res = await api.get(`/customer/profile?phone=${info.phone}`);
-        if (res.data.success && res.data.data?.name) {
-          finalName = res.data.data.name;
+        if (res.data.success && res.data.data) {
+          finalName = res.data.data.name || finalName;
+          customerId = res.data.data.id;
         }
       } catch (profileErr) {
         console.error("Could not fetch profile, using form name:", profileErr);
       }
 
       const customerData = {
+        id: customerId,
         name: finalName,
         phone: info.phone
       };

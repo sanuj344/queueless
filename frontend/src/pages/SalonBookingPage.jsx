@@ -12,6 +12,7 @@ const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_SkrpjWAPF
 const STEPS = [
   { label: 'Select Services', icon: '✂️' },
   { label: 'Pick a Slot', icon: '📅' },
+  { label: 'Choose Stylist', icon: '👤' },
   { label: 'Confirm & Pay', icon: '💳' }
 ];
 
@@ -38,6 +39,10 @@ export default function SalonBookingPage({ vendor, vendorId }) {
   const [paying, setPaying] = useState(false);
   const [ratingData, setRatingData] = useState({ avgRating: '0.0', totalReviews: 0 });
   const [reviews, setReviews] = useState([]);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [bookedSlots, setBookedSlots] = useState([]);
+  const [stylists, setStylists] = useState([]);
+  const [selectedStylist, setSelectedStylist] = useState(null);
 
   // Customer info — auto-fill if logged in
   const [customerName, setCustomerName] = useState(customer?.name || '');
@@ -68,10 +73,45 @@ export default function SalonBookingPage({ vendor, vendorId }) {
         setReviews(res.data.data || []);
       } catch { /* non-critical */ }
     };
+    const fetchWallet = async () => {
+      const activeUser = customer || user;
+      if (!activeUser) return;
+      
+      try {
+        let url = `/wallet/${activeUser.id}`;
+        // Fallback for existing sessions missing the ID
+        if (!activeUser.id && activeUser.phone) {
+          url = `/wallet?phone=${activeUser.phone}`;
+        } else if (!activeUser.id) {
+          return;
+        }
+
+        const res = await api.get(url);
+        const balance = res.data.wallet ? res.data.wallet.balance : (res.data.balance || 0);
+        setWalletBalance(balance);
+      } catch (err) {
+        console.error("Wallet fetch error:", err);
+      }
+    };
     fetchServices();
     fetchRating();
     fetchReviews();
-  }, [vendorId]);
+    fetchWallet();
+  }, [vendorId, user?.id, customer?.id]);
+
+  useEffect(() => {
+    if (selectedDate && vendorId) {
+      const fetchBookedSlots = async () => {
+        try {
+          const res = await api.get(`/bookings/vendor/${vendorId}/booked-slots?date=${selectedDate}`);
+          setBookedSlots(res.data.data || []);
+        } catch {
+          console.error("Failed to fetch booked slots");
+        }
+      };
+      fetchBookedSlots();
+    }
+  }, [selectedDate, vendorId]);
 
   const toggleService = (service) => {
     setSelectedServices(prev =>
@@ -107,7 +147,8 @@ export default function SalonBookingPage({ vendor, vendorId }) {
     totalAmount: total,
     platformFee,
     finalAmount,
-    slotTime: new Date(`${selectedDate}T${selectedSlot}:00`).toISOString()
+    slotTime: new Date(`${selectedDate}T${selectedSlot}:00`).toISOString(),
+    stylistId: selectedStylist?.id
   });
 
   const handleRazorpayPay = async () => {
@@ -157,15 +198,25 @@ export default function SalonBookingPage({ vendor, vendorId }) {
   };
 
   const handleWalletPay = async () => {
-    if (!customer) return toast.error('Please login to use wallet');
+    const activeUser = customer || user;
+    if (!activeUser) return toast.error('Please login to use wallet');
     setPaying(true);
+    let url = `/wallet/${activeUser.id}`;
+    if (!activeUser.id && activeUser.phone) {
+      url = `/wallet?phone=${activeUser.phone}`;
+    }
+
     try {
-      const walletRes = await api.get(`/payment/wallet-balance?phone=${customer.phone}`);
-      const { balance, customerId } = walletRes.data;
+      const walletRes = await api.get(url);
+      const balance = walletRes.data.wallet ? walletRes.data.wallet.balance : (walletRes.data.balance || 0);
+      const customerId = walletRes.data.wallet ? (walletRes.data.wallet.customerId || walletRes.data.wallet.userId) : activeUser.id;
+
       if (balance < platformFee) {
         toast.error(`Insufficient wallet balance. You have ₹${balance}, need ₹${platformFee}`);
+        setPaying(false);
         return;
       }
+
       const orderData = buildOrderData();
       const res = await api.post('/payment/wallet-pay', {
         userId: customerId,
@@ -173,6 +224,7 @@ export default function SalonBookingPage({ vendor, vendorId }) {
         commissionAmount: platformFee,
         orderData
       });
+
       if (res.data.success) {
         const bookingId = res.data.booking?.id;
         localStorage.setItem('ql_last_booking_id', bookingId);
@@ -206,7 +258,7 @@ export default function SalonBookingPage({ vendor, vendorId }) {
               <p className="text-sm text-zinc-500 truncate">{vendor?.address?.split('\n')[0]}</p>
               <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                 <div className="flex items-center gap-1">
-                  {[1,2,3,4,5].map(star => (
+                  {[1, 2, 3, 4, 5].map(star => (
                     <span key={star} className={`text-sm ${star <= Math.round(parseFloat(ratingData.avgRating)) ? 'text-amber-400' : 'text-zinc-300 dark:text-zinc-700'}`}>★</span>
                   ))}
                   <span className="text-sm font-black text-zinc-900 dark:text-white ml-1">{ratingData.avgRating}</span>
@@ -292,7 +344,7 @@ export default function SalonBookingPage({ vendor, vendorId }) {
                           {review.customer?.name || 'Customer'}
                         </span>
                         <div className="flex items-center gap-0.5">
-                          {[1,2,3,4,5].map(s => (
+                          {[1, 2, 3, 4, 5].map(s => (
                             <span key={s} className={`text-xs ${s <= review.rating ? 'text-amber-400' : 'text-zinc-300 dark:text-zinc-700'}`}>★</span>
                           ))}
                         </div>
@@ -326,15 +378,23 @@ export default function SalonBookingPage({ vendor, vendorId }) {
               <div>
                 <label className="text-sm font-bold text-zinc-600 dark:text-zinc-400 mb-3 block">Available Slots</label>
                 <div className="grid grid-cols-4 gap-2">
-                  {generateSlots().map(slot => (
-                    <button
-                      key={slot}
-                      onClick={() => setSelectedSlot(slot)}
-                      className={`py-2.5 rounded-xl text-xs font-bold transition-all border ${selectedSlot === slot ? 'bg-[#d4ff00] text-black border-[#d4ff00]' : 'bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-zinc-600'}`}
-                    >
-                      {slot}
-                    </button>
-                  ))}
+                  {generateSlots().map(slot => {
+                    const isBooked = bookedSlots.includes(slot);
+                    return (
+                      <button
+                        key={slot}
+                        disabled={isBooked}
+                        onClick={() => {
+                          setSelectedSlot(slot);
+                          setSelectedStylist(null);
+                        }}
+                        className={`py-2.5 rounded-xl text-xs font-bold transition-all border ${selectedSlot === slot ? 'bg-[#d4ff00] text-black border-[#d4ff00]' : isBooked ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 border-zinc-200 dark:border-zinc-800 cursor-not-allowed opacity-50' : 'bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-zinc-600'}`}
+                      >
+                        {slot}
+                        {isBooked && <div className="text-[8px] opacity-60">Taken</div>}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -342,7 +402,65 @@ export default function SalonBookingPage({ vendor, vendorId }) {
               <button onClick={() => setStep(0)} className="flex-1 py-3 border border-zinc-200 dark:border-zinc-700 rounded-2xl text-sm font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all">← Back</button>
               <button
                 disabled={!selectedDate || !selectedSlot}
-                onClick={() => { if (requireCustomer()) setStep(2); }}
+                onClick={async () => { 
+                  if (requireCustomer()) {
+                    setLoading(true);
+                    try {
+                      const slotISO = new Date(`${selectedDate}T${selectedSlot}:00`).toISOString();
+                      const res = await api.get(`/vendors/${vendorId}/available-stylists?slotTime=${slotISO}`);
+                      setStylists(res.data.data || []);
+                      setStep(2);
+                    } catch {
+                      toast.error("Failed to load stylists");
+                    } finally {
+                      setLoading(false);
+                    }
+                  } 
+                }}
+                className="flex-1 py-3 bg-[#d4ff00] text-black font-black rounded-2xl disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#c0e600] transition-all"
+              >
+                Next: Choose Stylist →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Choose Stylist */}
+        {step === 2 && (
+          <div className="space-y-6">
+            <h2 className="text-xs font-black uppercase tracking-widest text-zinc-400">Choose a Stylist</h2>
+            <div className="grid grid-cols-1 gap-3">
+              {stylists.length === 0 ? (
+                <div className="text-center py-12 text-zinc-500 text-sm">No stylists available for this slot.</div>
+              ) : (
+                stylists.map(s => (
+                  <button
+                    key={s.id}
+                    disabled={s.isBooked}
+                    onClick={() => setSelectedStylist(s)}
+                    className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all text-left ${selectedStylist?.id === s.id ? 'border-purple-500/40 bg-purple-500/5' : s.isBooked ? 'opacity-50 grayscale cursor-not-allowed border-zinc-200 dark:border-zinc-800' : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900'}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${selectedStylist?.id === s.id ? 'bg-purple-500 text-white' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500'}`}>
+                        {s.name[0].toUpperCase()}
+                      </div>
+                      <div>
+                        <p className={`font-bold text-sm ${selectedStylist?.id === s.id ? 'text-purple-600 dark:text-purple-400' : 'text-zinc-900 dark:text-white'}`}>{s.name}</p>
+                        <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest">{s.isBooked ? 'Fully Booked' : 'Available'}</p>
+                      </div>
+                    </div>
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs transition-all ${selectedStylist?.id === s.id ? 'border-purple-500 bg-purple-500 text-white' : 'border-zinc-300 dark:border-zinc-600'}`}>
+                      {selectedStylist?.id === s.id && '✓'}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setStep(1)} className="flex-1 py-3 border border-zinc-200 dark:border-zinc-700 rounded-2xl text-sm font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all">← Back</button>
+              <button
+                disabled={!selectedStylist}
+                onClick={() => setStep(3)}
                 className="flex-1 py-3 bg-[#d4ff00] text-black font-black rounded-2xl disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#c0e600] transition-all"
               >
                 Next: Confirm →
@@ -351,8 +469,8 @@ export default function SalonBookingPage({ vendor, vendorId }) {
           </div>
         )}
 
-        {/* Step 2: Confirm + Pay */}
-        {step === 2 && (
+        {/* Step 3: Confirm + Pay */}
+        {step === 3 && (
           <div className="space-y-5">
             <h2 className="text-xs font-black uppercase tracking-widest text-zinc-400">Confirm Booking</h2>
 
@@ -369,6 +487,10 @@ export default function SalonBookingPage({ vendor, vendorId }) {
               <div className="flex justify-between text-xs text-zinc-500 font-bold">
                 <span>📅 Date & Time</span>
                 <span className="text-zinc-900 dark:text-white font-black">{selectedDate} · {selectedSlot}</span>
+              </div>
+              <div className="flex justify-between text-xs text-zinc-500 font-bold">
+                <span>👤 Stylist</span>
+                <span className="text-purple-600 dark:text-purple-400 font-black">{selectedStylist?.name}</span>
               </div>
               {selectedServices.map(s => (
                 <div key={s.id} className="flex justify-between text-sm">
@@ -394,14 +516,17 @@ export default function SalonBookingPage({ vendor, vendorId }) {
               {customer && (
                 <button
                   onClick={handleWalletPay}
-                  disabled={paying}
+                  disabled={paying || walletBalance < platformFee}
                   className="w-full py-3.5 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 font-bold rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all disabled:opacity-50"
                 >
-                  Pay via Wallet
+                  {walletBalance < platformFee ? 'Insufficient Balance' : 'Pay via Wallet'}
+                  <span className="text-xs text-zinc-500 ml-2">
+                    (Balance: {formatCurrency(walletBalance)})
+                  </span>
                 </button>
               )}
             </div>
-            <button onClick={() => setStep(1)} className="w-full text-center text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors py-2">← Back to slots</button>
+            <button onClick={() => setStep(2)} className="w-full text-center text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors py-2">← Back to stylists</button>
           </div>
         )}
       </div>

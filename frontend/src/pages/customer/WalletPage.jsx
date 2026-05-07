@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 export default function WalletPage() {
   const { user } = useAuth();
   const [balance, setBalance] = useState(0);
+  const [transactions, setTransactions] = useState([]);
   const [referralCode, setReferralCode] = useState('');
   const [topUpAmount, setTopUpAmount] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,9 +19,10 @@ export default function WalletPage() {
 
   const fetchWalletDetails = () => {
     if (phone) {
-      api.get(`/payment/wallet-balance?phone=${phone}`)
+      api.get(`/wallet?phone=${phone}`)
         .then(res => {
-          setBalance(res.data.balance || 0);
+          setBalance(res.data.wallet?.balance || 0);
+          setTransactions(res.data.transactions || []);
           if (res.data.referralCode) {
             setReferralCode(res.data.referralCode);
           }
@@ -220,6 +222,40 @@ export default function WalletPage() {
             <p>• Digital Cash inside your wallet is non-refundable and cannot be withdrawn.</p>
             <p>• Referral rewards are granted instantly when the referred vendor processes their first 10 orders.</p>
           </div>
+        </div>
+
+        {/* Transaction History Section */}
+        <div className="mt-8 space-y-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest">
+            Audit Trail
+          </div>
+          <h2 className="text-2xl font-black text-zinc-900 dark:text-white">Transaction History</h2>
+
+          <Card className="p-4 sm:p-6 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+            {transactions.length === 0 ? (
+              <p className="text-zinc-500 dark:text-zinc-400 text-center py-6">No transactions yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {transactions.map(tx => (
+                  <div key={tx.id} className="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3 last:border-0 last:pb-0">
+                    <div>
+                      <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                        {tx.source === "topup" && "Wallet Top-up"}
+                        {tx.source === "order" && "Order Payment"}
+                        {tx.source === "referral" && "Referral Reward"}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        {new Date(tx.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className={`font-black ${tx.type === "credit" ? "text-green-500" : "text-red-500"}`}>
+                      {tx.type === "credit" ? "+" : "-"}₹{tx.amount.toFixed(2)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
         </div>
 
       </div>

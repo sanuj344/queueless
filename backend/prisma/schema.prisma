@@ -38,6 +38,8 @@ model User {
   referralCode      String?  @unique
   referredBy        String?
   wallet            Wallet?
+  vendorTokenIndex  Int      @default(0)
+  stylists          Stylist[]
 }
 
 model Service {
@@ -69,10 +71,23 @@ model Booking {
   paymentMethod  String    @default("razorpay")
   paymentStatus  String    @default("paid")
   customerAction String?
+  hasArrived     Boolean   @default(false)
+  serviceStartTime DateTime?
+  serviceEndTime   DateTime?
+  stylistId      String?
+  stylist        Stylist?  @relation(fields: [stylistId], references: [id])
   type           String    @default("salon")
   createdAt      DateTime  @default(now())
   reviews        Review[]
   reviewGiven    Boolean   @default(false)
+}
+
+model Stylist {
+  id       String @id @default(uuid())
+  name     String
+  vendorId String
+  vendor   User   @relation(fields: [vendorId], references: [id])
+  bookings Booking[]
 }
 
 model Customer {
@@ -135,8 +150,20 @@ model Wallet {
   customer   Customer? @relation(fields: [customerId], references: [id])
   userId     String?   @unique
   user       User?     @relation(fields: [userId], references: [id])
-  balance    Float     @default(500)
-  createdAt  DateTime  @default(now())
+  balance      Float               @default(500)
+  createdAt    DateTime            @default(now())
+  transactions WalletTransaction[]
+}
+
+model WalletTransaction {
+  id        String   @id @default(uuid())
+  walletId  String
+  amount    Float
+  type      String   // "credit" | "debit"
+  source    String   // "topup" | "order" | "referral"
+  createdAt DateTime @default(now())
+
+  wallet    Wallet   @relation(fields: [walletId], references: [id])
 }
 
 model Referral {

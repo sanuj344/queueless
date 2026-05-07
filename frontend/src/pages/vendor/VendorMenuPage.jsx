@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../../utils/api';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
+import { formatCurrency } from '../../utils/formatCurrency';
 
 export default function VendorMenuPage() {
   const [items, setItems] = useState([]);
@@ -133,7 +134,7 @@ export default function VendorMenuPage() {
                           {item.category}
                         </span>
                       </div>
-                      <p className="text-[#8cb800] dark:text-[#d4ff00] font-black text-xl mb-4">${Number(item.price).toFixed(2)}</p>
+                      <p className="text-[#8cb800] dark:text-[#d4ff00] font-black text-xl mb-4">{formatCurrency(item.price)}</p>
                     </div>
                     <div className="flex gap-2">
                       <Button variant="outline" className="flex-1" onClick={() => openEdit(item)}>Edit</Button>

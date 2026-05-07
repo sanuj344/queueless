@@ -196,9 +196,17 @@ router.patch('/:id', protect, restrictTo('vendor'), async (req, res, next) => {
           });
 
           if (referrerUser) {
-            await prisma.wallet.update({
+            const wallet = await prisma.wallet.update({
               where: { userId: referrerUser.id },
               data: { balance: { increment: 100 } }
+            });
+            await prisma.walletTransaction.create({
+              data: {
+                walletId: wallet.id,
+                amount: 100,
+                type: 'credit',
+                source: 'referral'
+              }
             });
           } else {
             const referrerCust = await prisma.customer.findFirst({
@@ -206,9 +214,17 @@ router.patch('/:id', protect, restrictTo('vendor'), async (req, res, next) => {
             });
 
             if (referrerCust) {
-              await prisma.wallet.update({
+              const wallet = await prisma.wallet.update({
                 where: { customerId: referrerCust.id },
                 data: { balance: { increment: 100 } }
+              });
+              await prisma.walletTransaction.create({
+                data: {
+                  walletId: wallet.id,
+                  amount: 100,
+                  type: 'credit',
+                  source: 'referral'
+                }
               });
             }
           }

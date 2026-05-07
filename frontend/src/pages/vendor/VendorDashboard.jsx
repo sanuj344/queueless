@@ -18,6 +18,7 @@ export default function VendorDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showInstructions, setShowInstructions] = useState(false);
+  const [stylists, setStylists] = useState([]);
   
   const audioRef = useRef(null);
   const prevOrdersCount = useRef(0);
@@ -79,10 +80,22 @@ export default function VendorDashboard() {
     }
   };
 
+  const fetchStylists = async () => {
+    try {
+      const res = await api.get('/vendor/stylists');
+      setStylists(res.data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch stylists');
+    }
+  };
+
   useEffect(() => {
     fetchOrders();
     fetchQr();
-    if (isSalon) fetchBookings();
+    if (isSalon) {
+      fetchBookings();
+      fetchStylists();
+    }
     
     const seen = localStorage.getItem('ql_instructions_seen');
     if (!seen) setShowInstructions(true);
@@ -263,36 +276,65 @@ export default function VendorDashboard() {
                       <p className="text-xs text-zinc-500 font-mono">{booking.customerPhone}</p>
                     </div>
                     <p className="text-xs font-bold text-purple-600 dark:text-purple-400">📅 {slot}</p>
+                    {booking.stylist && (
+                      <p className="text-[10px] font-black uppercase text-zinc-500">Stylist: <span className="text-purple-500">{booking.stylist.name}</span></p>
+                    )}
                     {Array.isArray(booking.services) && (
                       <div className="text-xs text-zinc-500 space-y-0.5">
                         {booking.services.map((s, i) => <p key={i}>✂️ {s.name} — ₹{s.price}</p>)}
                       </div>
                     )}
                     {booking.customerAction && (
-                      <div className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs border border-zinc-200 dark:border-zinc-700">
-                        {booking.customerAction === 'coming' && '🚗 Coming'}
+                      <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold animate-pulse ${
+                        booking.customerAction === 'coming' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600' :
+                        booking.customerAction === 'delayed' ? 'bg-amber-500/10 border-amber-500/30 text-amber-600' :
+                        'bg-blue-500/10 border-blue-500/30 text-blue-600'
+                      }`}>
+                        {booking.customerAction === 'coming' && '🚗 Customer is Coming'}
                         {booking.customerAction === 'delayed' && '⏰ Delayed'}
-                        {booking.customerAction === 'contact' && '📞 Contact'}
+                        {booking.customerAction === 'contact' && '📞 Please Contact'}
                       </div>
                     )}
-                    {booking.status === 'placed' && (
-                      <button onClick={async () => { await api.patch(`/bookings/${booking.id}`, { status: 'accepted' }); fetchBookings(); }}
-                        className="w-full py-2 text-xs font-bold bg-[#d4ff00] text-black rounded-xl hover:bg-[#c0e600] transition-all">
-                        Accept Booking
-                      </button>
+
+                    {booking.hasArrived && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-500/20">
+                        <span>✅</span> Customer Arrived
+                      </div>
                     )}
-                    {booking.status === 'accepted' && (
-                      <button onClick={async () => { await api.patch(`/bookings/${booking.id}`, { status: 'in_service' }); fetchBookings(); }}
-                        className="w-full py-2 text-xs font-bold bg-purple-500 text-white rounded-xl hover:bg-purple-600 transition-all">
-                        Start Service
-                      </button>
-                    )}
-                    {booking.status === 'in_service' && (
-                      <button onClick={async () => { await api.patch(`/bookings/${booking.id}`, { status: 'completed' }); fetchBookings(); }}
-                        className="w-full py-2 text-xs font-bold bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all">
-                        Mark Completed
-                      </button>
-                    )}
+
+                    {/* Stylist is already locked and shown above */}
+
+                    <div className="pt-2 flex flex-col gap-2">
+                      {booking.status === 'placed' && (
+                        <button onClick={async () => { await api.patch(`/bookings/${booking.id}`, { status: 'accepted' }); fetchBookings(); }}
+                          className="w-full py-2.5 text-xs font-black bg-[#d4ff00] text-black rounded-xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-[#d4ff00]/10">
+                          Accept Booking
+                        </button>
+                      )}
+                      {booking.status === 'accepted' && (
+                        <button onClick={async () => { await api.patch(`/bookings/${booking.id}`, { status: 'in_service' }); fetchBookings(); }}
+                          className="w-full py-2.5 text-xs font-black bg-purple-500 text-white rounded-xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-purple-500/10">
+                          Start Service
+                        </button>
+                      )}
+                      {booking.status === 'in_service' && (
+                        <button onClick={async () => { await api.patch(`/bookings/${booking.id}`, { status: 'completed' }); fetchBookings(); }}
+                          className="w-full py-2.5 text-xs font-black bg-emerald-500 text-white rounded-xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-emerald-500/10">
+                          Complete Service
+                        </button>
+                      )}
+                      {booking.status === 'completed' && booking.paymentStatus === 'pending' && (
+                        <button onClick={async () => { await api.patch(`/bookings/${booking.id}/pay`); fetchBookings(); }}
+                          className="w-full py-2.5 text-xs font-black bg-[#d4ff00] text-black rounded-xl hover:scale-[1.02] active:scale-95 transition-all">
+                          Mark as Paid (₹{booking.totalAmount})
+                        </button>
+                      )}
+                      {booking.paymentStatus === 'paid' && booking.status === 'completed' && (
+                        <div className="text-center py-2 text-xs font-black text-emerald-500 uppercase tracking-widest">
+                          Paid ✓
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -353,6 +395,42 @@ export default function VendorDashboard() {
                 <p className="text-zinc-500 font-bold animate-pulse">Generating your terminal...</p>
               </div>
             )}
+          </Card>
+
+          {/* Stylist Management */}
+          <Card className="mt-8 p-8 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-2xl">
+            <div className="text-left w-full">
+              <h3 className="text-lg font-black text-zinc-900 dark:text-white mb-1">Manage Stylists</h3>
+              <p className="text-xs text-zinc-500 mb-6">Add your team members to assign them to bookings.</p>
+              
+              <div className="flex gap-2 mb-6">
+                <input 
+                  type="text" 
+                  placeholder="Stylist Name" 
+                  id="new-stylist-name"
+                  className="flex-1 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2 text-sm outline-none focus:border-[#d4ff00]"
+                />
+                <Button size="sm" onClick={async () => {
+                  const input = document.getElementById('new-stylist-name');
+                  if (!input.value.trim()) return;
+                  await api.post('/vendor/stylists', { name: input.value });
+                  input.value = '';
+                  fetchStylists();
+                }}>
+                  Add
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                {stylists.map(s => (
+                  <div key={s.id} className="flex justify-between items-center p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-700">
+                    <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">{s.name}</span>
+                    <span className="text-[10px] text-zinc-400 uppercase font-black">Active</span>
+                  </div>
+                ))}
+                {stylists.length === 0 && <p className="text-center text-zinc-400 text-xs py-4">No stylists added yet.</p>}
+              </div>
+            </div>
           </Card>
         </div>
       )}

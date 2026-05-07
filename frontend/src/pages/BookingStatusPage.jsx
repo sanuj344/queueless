@@ -60,12 +60,30 @@ export default function BookingStatusPage() {
   };
 
   const handleCancel = async () => {
+    if (booking.status !== 'placed') {
+      return toast.error('Cannot cancel after booking is accepted or processed');
+    }
     if (!window.confirm('Cancel this booking?')) return;
     try {
       const res = await api.patch(`/bookings/${booking.id}/cancel`);
-      if (res.data.success) setBooking(res.data.data);
+      if (res.data.success) {
+        setBooking(res.data.data);
+        toast.success('Booking cancelled');
+      }
     } catch (err) {
-      alert(err.response?.data?.message || 'Cancellation failed');
+      toast.error(err.response?.data?.message || 'Cancellation failed');
+    }
+  };
+
+  const markArrived = async () => {
+    try {
+      const res = await api.patch(`/bookings/${booking.id}/arrived`);
+      if (res.data.success) {
+        setBooking(res.data.data);
+        toast.success("Arrival confirmed!");
+      }
+    } catch (err) {
+      toast.error("Failed to mark arrival");
     }
   };
 
@@ -134,8 +152,10 @@ export default function BookingStatusPage() {
           {currentStep < 3 ? 'Your booking is confirmed!' : currentStep === 3 ? 'Service in progress ✂️' : 'All done! 🎉'}
         </h1>
         <div className="mt-4 p-4 rounded-3xl bg-purple-500/10 border border-purple-500/20 inline-block">
-          <p className="text-[10px] font-black uppercase tracking-widest text-purple-400 mb-1">Appointment Slot</p>
           <h2 className="text-xl font-black text-purple-600 dark:text-purple-400">{slotStr}</h2>
+          {booking.stylist && (
+            <p className="text-xs text-zinc-500 mt-1">Stylist: <strong>{booking.stylist.name}</strong></p>
+          )}
           {booking.tokenNumber && <p className="text-xs text-zinc-500 mt-1">Token: <strong>{booking.tokenNumber}</strong></p>}
         </div>
       </div>
@@ -202,6 +222,25 @@ export default function BookingStatusPage() {
         </div>
       )}
 
+      {/* Arrival Confirmation */}
+      {['accepted', 'placed'].includes(booking.status) && !booking.hasArrived && (
+        <div className="w-full max-w-md mb-6">
+          <button
+            onClick={markArrived}
+            className="w-full py-4 bg-[#d4ff00] text-black font-black rounded-3xl shadow-[0_0_20px_rgba(212,255,0,0.15)] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
+          >
+            <span className="text-xl">📍</span>
+            I have arrived at the Salon
+          </button>
+        </div>
+      )}
+
+      {booking.hasArrived && booking.status !== 'completed' && (
+        <div className="w-full max-w-md mb-6 p-4 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-center text-sm font-bold flex items-center justify-center gap-2">
+          <span>✅</span> Arrival Confirmed
+        </div>
+      )}
+
       {/* Vendor contact */}
       {booking.vendor?.mobile && (
         <div className="w-full max-w-md mb-6 p-5 rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-center">
@@ -215,7 +254,7 @@ export default function BookingStatusPage() {
       )}
 
       {/* Cancel (if before slot time) */}
-      {['placed', 'accepted'].includes(booking.status) && new Date() < new Date(booking.slotTime) && (
+      {booking.status === 'placed' && new Date() < new Date(booking.slotTime) && (
         <div className="w-full max-w-md mb-4">
           <Button fullWidth variant="outline" size="lg" className="border-red-500/40 text-red-500 hover:bg-red-500/5" onClick={handleCancel}>
             Cancel Booking

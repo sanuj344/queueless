@@ -82,7 +82,12 @@ router.post('/verify', async (req, res, next) => {
     if (!customer) {
       const { generateReferralCode } = require('../utils/referral');
       customer = await prisma.customer.create({
-        data: { name: customerName, phone: customerPhone, referralCode: generateReferralCode() }
+        data: { 
+          name: customerName, 
+          phone: customerPhone, 
+          referralCode: generateReferralCode(),
+          wallet: { create: { balance: 0.0 } }
+        }
       });
     } else if (customer.name !== customerName) {
       customer = await prisma.customer.update({
@@ -95,15 +100,24 @@ router.post('/verify', async (req, res, next) => {
 
     // 🔀 Branch: Salon Booking vs Food Order
     if (orderData.type === 'salon') {
-      const { services, slotTime } = orderData;
+      const { services, slotTime, stylistId } = orderData;
 
-      // Slot conflict check (capacity = 1 for Phase 1)
+      // Slot conflict check (unique per stylist/slot)
       const slotDateTime = new Date(slotTime);
+      const conflictWhere = { 
+        vendorId, 
+        slotTime: slotDateTime, 
+        status: { not: 'cancelled' } 
+      };
+      
+      if (stylistId) conflictWhere.stylistId = stylistId;
+
       const existingSlot = await prisma.booking.count({
-        where: { vendorId, slotTime: slotDateTime, status: { not: 'cancelled' } }
+        where: conflictWhere
       });
+      
       if (existingSlot >= 1) {
-        return res.status(409).json({ success: false, message: 'This slot is already booked. Please choose another time.' });
+        return res.status(409).json({ success: false, message: 'This slot/stylist is already booked. Please choose another time.' });
       }
 
       const booking = await prisma.booking.create({
@@ -122,6 +136,7 @@ router.post('/verify', async (req, res, next) => {
           paymentStatus: 'paid',
           tokenNumber: token.tokenNumber,
           tokenIndex: token.tokenIndex,
+          stylistId,
           type: 'salon'
         }
       });
@@ -193,7 +208,7 @@ router.get('/wallet-balance', async (req, res, next) => {
       where: { phone },
       include: { wallet: true }
     });
-    
+
     // If customer doesn't exist, create it on demand so they have a wallet!
     if (!customer) {
       const { generateReferralCode } = require('../utils/referral');
@@ -242,9 +257,15 @@ router.post('/wallet-pay', async (req, res, next) => {
       return res.status(400).json({ message: 'Commission amount required' });
     }
 
-    const wallet = await prisma.wallet.findUnique({
+    let wallet = await prisma.wallet.findUnique({
       where: { customerId: userId }
     });
+
+    if (!wallet) {
+      wallet = await prisma.wallet.findUnique({
+        where: { userId: userId }
+      });
+    }
 
     if (!wallet) {
       return res.status(400).json({ message: 'Wallet not found' });
@@ -275,8 +296,17 @@ router.post('/wallet-pay', async (req, res, next) => {
 
     // Deduct wallet balance
     await prisma.wallet.update({
-      where: { customerId: userId },
+      where: { id: wallet.id },
       data: { balance: { decrement: finalCommission } }
+    });
+
+    await prisma.walletTransaction.create({
+      data: {
+        walletId: wallet.id,
+        amount: finalCommission,
+        type: 'debit',
+        source: 'order'
+      }
     });
 
     const { customerName, customerPhone, vendorId, totalAmount, platformFee, finalAmount } = orderData;
@@ -284,19 +314,35 @@ router.post('/wallet-pay', async (req, res, next) => {
 
     // 🔀 Branch: Salon Booking vs Food Order
     if (orderData.type === 'salon') {
-      const { services, slotTime } = orderData;
+      const { services, slotTime, stylistId } = orderData;
       const slotDateTime = new Date(slotTime);
 
+      const conflictWhere = { 
+        vendorId, 
+        slotTime: slotDateTime, 
+        status: { not: 'cancelled' } 
+      };
+      if (stylistId) conflictWhere.stylistId = stylistId;
+
       const existingSlot = await prisma.booking.count({
-        where: { vendorId, slotTime: slotDateTime, status: { not: 'cancelled' } }
+        where: conflictWhere
       });
+      
       if (existingSlot >= 1) {
         // Refund wallet since slot is taken
         await prisma.wallet.update({
-          where: { customerId: userId },
+          where: { id: wallet.id },
           data: { balance: { increment: finalCommission } }
         });
-        return res.status(409).json({ success: false, message: 'This slot is already booked. Please choose another time.' });
+        await prisma.walletTransaction.create({
+          data: {
+            walletId: wallet.id,
+            amount: finalCommission,
+            type: 'credit',
+            source: 'order' // Refund
+          }
+        });
+        return res.status(409).json({ success: false, message: 'This slot/stylist is already booked. Please choose another time.' });
       }
 
       const booking = await prisma.booking.create({
@@ -308,6 +354,7 @@ router.post('/wallet-pay', async (req, res, next) => {
           slotTime: slotDateTime, status: 'placed',
           paymentMethod: 'wallet', paymentStatus: 'paid',
           tokenNumber: token.tokenNumber, tokenIndex: token.tokenIndex,
+          stylistId,
           type: 'salon'
         }
       });
@@ -437,6 +484,15 @@ router.post('/topup/verify', async (req, res) => {
         });
       }
     }
+
+    await prisma.walletTransaction.create({
+      data: {
+        walletId: wallet.id,
+        amount: parseFloat(amount),
+        type: 'credit',
+        source: 'topup'
+      }
+    });
 
     res.json({ success: true, balance: wallet.balance });
 

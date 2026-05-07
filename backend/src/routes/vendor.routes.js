@@ -44,4 +44,32 @@ router.get('/profile', protect, restrictTo('vendor'), async (req, res, next) => 
   }
 });
 
+// GET /vendor/stylists — returns all stylists for the vendor
+router.get('/stylists', protect, restrictTo('vendor'), async (req, res, next) => {
+  try {
+    const stylists = await prisma.stylist.findMany({
+      where: { vendorId: req.user.id }
+    });
+    res.json({ success: true, data: stylists });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /vendor/stylists — add a new stylist
+router.post('/stylists', protect, restrictTo('vendor'), async (req, res, next) => {
+  try {
+    const { name } = req.body;
+    const stylist = await prisma.stylist.create({
+      data: {
+        name,
+        vendorId: req.user.id
+      }
+    });
+    res.json({ success: true, data: stylist });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;
