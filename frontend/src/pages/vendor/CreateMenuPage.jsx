@@ -1,18 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../utils/api';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
+import { useAuth } from '../../context/AuthContext';
+
 
 export default function CreateMenuPage() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
+
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form bounds for a single new item entry
   const [formData, setFormData] = useState({ name: '', price: '', category: '', description: '', prepTime: '' });
+
+  useEffect(() => {
+    if (user && user.vendorType === 'salon') {
+      navigate('/vendor/services');
+    }
+  }, [user, navigate]);
+
 
   const handleAddLocal = (e) => {
     e.preventDefault();

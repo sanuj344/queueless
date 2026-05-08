@@ -96,28 +96,27 @@ router.post('/verify', async (req, res, next) => {
       });
     }
 
-    const token = await generateVendorToken(vendorId);
+    // const token = await generateVendorToken(vendorId); // REMOVED: Manual token assignment now
+
 
     // 🔀 Branch: Salon Booking vs Food Order
     if (orderData.type === 'salon') {
-      const { services, slotTime, stylistId } = orderData;
-
-      // Slot conflict check (unique per stylist/slot)
+      const { services, slotTime, stylistId, stylistPreference } = orderData;
       const slotDateTime = new Date(slotTime);
-      const conflictWhere = { 
-        vendorId, 
-        slotTime: slotDateTime, 
-        status: { not: 'cancelled' } 
-      };
       
-      if (stylistId) conflictWhere.stylistId = stylistId;
-
-      const existingSlot = await prisma.booking.count({
-        where: conflictWhere
-      });
-      
-      if (existingSlot >= 1) {
-        return res.status(409).json({ success: false, message: 'This slot/stylist is already booked. Please choose another time.' });
+      if (stylistPreference === 'specific' && stylistId) {
+        const existingSlot = await prisma.booking.count({
+          where: {
+            vendorId,
+            slotTime: slotDateTime,
+            stylistId,
+            status: { not: 'cancelled' }
+          }
+        });
+        
+        if (existingSlot >= 1) {
+          return res.status(409).json({ success: false, message: 'This stylist is already booked for this slot. Please choose another time.' });
+        }
       }
 
       const booking = await prisma.booking.create({
@@ -134,15 +133,17 @@ router.post('/verify', async (req, res, next) => {
           status: 'placed',
           paymentMethod: 'razorpay',
           paymentStatus: 'paid',
-          tokenNumber: token.tokenNumber,
-          tokenIndex: token.tokenIndex,
-          stylistId,
+          tokenNumber: null,
+          tokenIndex: null,
+          stylistId: stylistPreference === 'anyone' ? null : stylistId,
+          stylistPreference: stylistPreference || 'specific',
           type: 'salon'
         }
       });
 
       return res.json({ success: true, booking, type: 'salon' });
     }
+
 
     // 🍔 Food Order (existing logic)
     const { items, deliveryTime } = orderData;
@@ -163,8 +164,9 @@ router.post('/verify', async (req, res, next) => {
         paymentStatus: 'paid',
         deliveryTime: deliveryTime || 'ASAP',
         expiresAt,
-        tokenNumber: token.tokenNumber,
-        tokenIndex: token.tokenIndex
+        tokenNumber: null,
+        tokenIndex: null
+
       }
     });
 
@@ -310,39 +312,40 @@ router.post('/wallet-pay', async (req, res, next) => {
     });
 
     const { customerName, customerPhone, vendorId, totalAmount, platformFee, finalAmount } = orderData;
-    const token = await generateVendorToken(vendorId);
+    // const token = await generateVendorToken(vendorId); // REMOVED
+
 
     // 🔀 Branch: Salon Booking vs Food Order
     if (orderData.type === 'salon') {
-      const { services, slotTime, stylistId } = orderData;
+      const { services, slotTime, stylistId, stylistPreference } = orderData;
       const slotDateTime = new Date(slotTime);
 
-      const conflictWhere = { 
-        vendorId, 
-        slotTime: slotDateTime, 
-        status: { not: 'cancelled' } 
-      };
-      if (stylistId) conflictWhere.stylistId = stylistId;
-
-      const existingSlot = await prisma.booking.count({
-        where: conflictWhere
-      });
-      
-      if (existingSlot >= 1) {
-        // Refund wallet since slot is taken
-        await prisma.wallet.update({
-          where: { id: wallet.id },
-          data: { balance: { increment: finalCommission } }
-        });
-        await prisma.walletTransaction.create({
-          data: {
-            walletId: wallet.id,
-            amount: finalCommission,
-            type: 'credit',
-            source: 'order' // Refund
+      if (stylistPreference === 'specific' && stylistId) {
+        const existingSlot = await prisma.booking.count({
+          where: {
+            vendorId,
+            slotTime: slotDateTime,
+            stylistId,
+            status: { not: 'cancelled' }
           }
         });
-        return res.status(409).json({ success: false, message: 'This slot/stylist is already booked. Please choose another time.' });
+        
+        if (existingSlot >= 1) {
+          // Refund wallet since slot is taken
+          await prisma.wallet.update({
+            where: { id: wallet.id },
+            data: { balance: { increment: finalCommission } }
+          });
+          await prisma.walletTransaction.create({
+            data: {
+              walletId: wallet.id,
+              amount: finalCommission,
+              type: 'credit',
+              source: 'order' // Refund
+            }
+          });
+          return res.status(409).json({ success: false, message: 'This stylist is already booked for this slot. Please choose another time.' });
+        }
       }
 
       const booking = await prisma.booking.create({
@@ -353,11 +356,13 @@ router.post('/wallet-pay', async (req, res, next) => {
           finalAmount: parseFloat(finalAmount || totalAmount),
           slotTime: slotDateTime, status: 'placed',
           paymentMethod: 'wallet', paymentStatus: 'paid',
-          tokenNumber: token.tokenNumber, tokenIndex: token.tokenIndex,
-          stylistId,
+          tokenNumber: null, tokenIndex: null,
+          stylistId: stylistPreference === 'anyone' ? null : stylistId,
+          stylistPreference: stylistPreference || 'specific',
           type: 'salon'
         }
       });
+
       return res.json({ success: true, booking, type: 'salon' });
     }
 
@@ -373,7 +378,8 @@ router.post('/wallet-pay', async (req, res, next) => {
         finalAmount: parseFloat(finalAmount || totalAmount),
         status: 'placed', paymentMethod: 'wallet', paymentStatus: 'paid',
         deliveryTime: deliveryTime || 'ASAP', expiresAt,
-        tokenNumber: token.tokenNumber, tokenIndex: token.tokenIndex
+        tokenNumber: null, tokenIndex: null
+
       }
     });
 

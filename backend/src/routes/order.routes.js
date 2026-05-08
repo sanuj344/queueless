@@ -51,8 +51,10 @@ router.post('/', async (req, res, next) => {
         finalAmount: parseFloat(totalAmount) + fee,
         status: 'pending',
         deliveryTime: deliveryTime || 'ASAP',
-        expiresAt
+        expiresAt,
+        tokenNumber: null
       }
+
     });
 
     res.status(201).json({ success: true, data: order });
@@ -161,12 +163,41 @@ router.patch('/:id', protect, restrictTo('vendor'), async (req, res, next) => {
     const dataToUpdate = { status };
 
     if (status === 'accepted') {
+      const { tokenNumber } = req.body;
+      if (!tokenNumber || !/^\d{3}$/.test(tokenNumber)) {
+        return res.status(400).json({ success: false, message: '3-digit numeric token is required' });
+      }
+
+      // Duplicate check (Active Orders)
+      const duplicateOrder = await prisma.order.findFirst({
+        where: {
+          vendorId: req.user.id,
+          tokenNumber,
+          status: { notIn: ['completed', 'cancelled'] }
+        }
+      });
+
+      // Duplicate check (Active Bookings)
+      const duplicateBooking = await prisma.booking.findFirst({
+        where: {
+          vendorId: req.user.id,
+          tokenNumber,
+          status: { notIn: ['completed', 'cancelled'] }
+        }
+      });
+
+      if (duplicateOrder || duplicateBooking) {
+        return res.status(400).json({ success: false, message: 'Token already in use' });
+      }
+
+      dataToUpdate.tokenNumber = tokenNumber;
       dataToUpdate.acceptedAt = new Date();
     } else if (status === 'preparing') {
       dataToUpdate.preparingAt = new Date();
     } else if (status === 'ready') {
       dataToUpdate.readyAt = new Date();
     }
+
 
     const order = await prisma.order.update({
       where: { id: req.params.id },

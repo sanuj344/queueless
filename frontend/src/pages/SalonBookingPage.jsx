@@ -113,6 +113,14 @@ export default function SalonBookingPage({ vendor, vendorId }) {
     }
   }, [selectedDate, vendorId]);
 
+  // Auto-select "Anyone" if no stylists available or to provide a default
+  useEffect(() => {
+    if (step === 2 && stylists.length === 0 && !selectedStylist) {
+      setSelectedStylist({ id: 'anyone', name: 'Anyone' });
+    }
+  }, [step, stylists, selectedStylist]);
+
+
   const toggleService = (service) => {
     setSelectedServices(prev =>
       prev.find(s => s.id === service.id)
@@ -148,8 +156,10 @@ export default function SalonBookingPage({ vendor, vendorId }) {
     platformFee,
     finalAmount,
     slotTime: new Date(`${selectedDate}T${selectedSlot}:00`).toISOString(),
-    stylistId: selectedStylist?.id
+    stylistId: selectedStylist?.id === 'anyone' ? null : selectedStylist?.id,
+    stylistPreference: selectedStylist?.id === 'anyone' ? 'anyone' : 'specific'
   });
+
 
   const handleRazorpayPay = async () => {
     if (!customerName || !customerPhone) return toast.error('Please fill your details');
@@ -430,8 +440,27 @@ export default function SalonBookingPage({ vendor, vendorId }) {
           <div className="space-y-6">
             <h2 className="text-xs font-black uppercase tracking-widest text-zinc-400">Choose a Stylist</h2>
             <div className="grid grid-cols-1 gap-3">
+              {/* ANYONE OPTION */}
+              <button
+                onClick={() => setSelectedStylist({ id: 'anyone', name: 'Anyone' })}
+                className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all text-left ${selectedStylist?.id === 'anyone' ? 'border-purple-500/40 bg-purple-500/5' : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900'}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${selectedStylist?.id === 'anyone' ? 'bg-purple-500 text-white' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500'}`}>
+                    ✨
+                  </div>
+                  <div>
+                    <p className={`font-bold text-sm ${selectedStylist?.id === 'anyone' ? 'text-purple-600 dark:text-purple-400' : 'text-zinc-900 dark:text-white'}`}>Anyone</p>
+                    <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest">Salon will assign available stylist</p>
+                  </div>
+                </div>
+                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs transition-all ${selectedStylist?.id === 'anyone' ? 'border-purple-500 bg-purple-500 text-white' : 'border-zinc-300 dark:border-zinc-600'}`}>
+                  {selectedStylist?.id === 'anyone' && '✓'}
+                </div>
+              </button>
+
               {stylists.length === 0 ? (
-                <div className="text-center py-12 text-zinc-500 text-sm">No stylists available for this slot.</div>
+                <div className="text-center py-12 text-zinc-500 text-sm">No other specific stylists available for this slot.</div>
               ) : (
                 stylists.map(s => (
                   <button
@@ -456,6 +485,7 @@ export default function SalonBookingPage({ vendor, vendorId }) {
                 ))
               )}
             </div>
+
             <div className="flex gap-3">
               <button onClick={() => setStep(1)} className="flex-1 py-3 border border-zinc-200 dark:border-zinc-700 rounded-2xl text-sm font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all">← Back</button>
               <button
@@ -490,8 +520,11 @@ export default function SalonBookingPage({ vendor, vendorId }) {
               </div>
               <div className="flex justify-between text-xs text-zinc-500 font-bold">
                 <span>👤 Stylist</span>
-                <span className="text-purple-600 dark:text-purple-400 font-black">{selectedStylist?.name}</span>
+                <span className="text-purple-600 dark:text-purple-400 font-black">
+                  {selectedStylist?.id === 'anyone' ? 'Will be assigned by salon' : selectedStylist?.name}
+                </span>
               </div>
+
               {selectedServices.map(s => (
                 <div key={s.id} className="flex justify-between text-sm">
                   <span className="text-zinc-700 dark:text-zinc-300">{s.name} <span className="text-zinc-400">({s.duration}min)</span></span>
@@ -535,7 +568,9 @@ export default function SalonBookingPage({ vendor, vendorId }) {
       <CustomerLoginModal
         isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}
+        isCheckoutFlow={true}
       />
+
     </div>
   );
 }

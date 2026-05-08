@@ -76,7 +76,9 @@ model Booking {
   serviceEndTime   DateTime?
   stylistId      String?
   stylist        Stylist?  @relation(fields: [stylistId], references: [id])
+  stylistPreference String   @default("specific") // "specific" | "anyone"
   type           String    @default("salon")
+
   createdAt      DateTime  @default(now())
   reviews        Review[]
   reviewGiven    Boolean   @default(false)

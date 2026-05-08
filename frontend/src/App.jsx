@@ -224,6 +224,12 @@ export default function App() {
                       </ProtectedRoute>
                     } 
                   />
+
+                  {/* Salon Redirects for Food Vendors */}
+                  <Route path="/vendor/stylists" element={<Navigate to="/vendor/dashboard" replace />} />
+                  <Route path="/salon-bookings" element={<Navigate to="/vendor/dashboard" replace />} />
+                  <Route path="/manage-services" element={<Navigate to="/vendor/dashboard" replace />} />
+
                 </Routes>
               </div>
               <Footer />

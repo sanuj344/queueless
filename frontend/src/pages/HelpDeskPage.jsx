@@ -64,7 +64,8 @@ export default function HelpDeskPage() {
             <Button variant="outline">Home</Button>
           </Link>
         </div>
-        <CustomerLoginModal isOpen={showLogin} onClose={() => setShowLogin(false)} />
+        <CustomerLoginModal isOpen={showLogin} onClose={() => setShowLogin(false)} isCheckoutFlow={false} />
+
       </div>
     );
   }

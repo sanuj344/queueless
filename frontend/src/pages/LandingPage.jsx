@@ -1,13 +1,28 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+
 import { features, vendorSteps } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
+import toast from 'react-hot-toast';
+
 import Card from '../components/Card';
 
 export default function LandingPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleBecomeVendorClick = () => {
+    if (user?.role === 'vendor') {
+      toast.success('Already logged in as vendor!');
+      navigate('/vendor/dashboard');
+    } else {
+      navigate('/auth/register?vendor=true');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-white overflow-x-hidden transition-colors duration-300">
+
 
       {/* ─── HERO ─── */}
       <section className="relative flex flex-col items-center justify-center min-h-screen px-4 sm:px-6 text-center pt-24">
@@ -56,16 +71,16 @@ export default function LandingPage() {
                   Get Started Now →
                 </Button>
               </Link>
-              {!user && (
-                <Link to="/auth/register?vendor=true" className="w-full sm:w-auto">
-                  <Button variant="secondary" size="xl" fullWidth>
-                    Vendor Onboarding
-                  </Button>
-                </Link>
-              )}
+              <button onClick={handleBecomeVendorClick} className="w-full sm:w-auto">
+                <Button variant="secondary" size="xl" fullWidth>
+                  Vendor Onboarding
+                </Button>
+              </button>
             </>
           )}
+
         </div>
+
 
         {/* Scroll hint */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-zinc-400 dark:text-zinc-600 text-xs flex flex-col items-center gap-2">

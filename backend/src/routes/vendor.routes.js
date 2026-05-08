@@ -72,4 +72,46 @@ router.post('/stylists', protect, restrictTo('vendor'), async (req, res, next) =
   }
 });
 
+// DELETE /vendor/stylists/:id — delete a stylist
+router.delete('/stylists/:id', protect, restrictTo('vendor'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    
+    // Check for active bookings assigned to this stylist
+    const activeBookings = await prisma.booking.findFirst({
+      where: {
+        stylistId: id,
+        status: { notIn: ['completed', 'cancelled'] }
+      }
+    });
+
+    if (activeBookings) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete stylist with active bookings. Reassign or complete upcoming bookings first.'
+      });
+    }
+
+    // Attempt to delete (ensuring vendorId match for security)
+    const deleted = await prisma.stylist.deleteMany({
+      where: {
+        id,
+        vendorId: req.user.id
+      }
+    });
+
+    if (deleted.count === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Stylist not found or unauthorized'
+      });
+    }
+
+    res.json({ success: true, message: 'Stylist deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
 module.exports = router;

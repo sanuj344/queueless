@@ -1,19 +1,35 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import CustomerLoginModal from "./CustomerLoginModal";
+import { useAuth } from "../context/AuthContext";
+import toast from "react-hot-toast";
+
+
 
 const Footer = () => {
   const navigate = useNavigate();
+  const { isAuthenticated, user, role } = useAuth();
   const [showLogin, setShowLogin] = useState(false);
 
+  const handleBecomeVendorClick = () => {
+    if (role === 'vendor' || user?.role === 'vendor') {
+      toast.success('Already logged in as vendor!');
+      navigate('/vendor/dashboard');
+    } else {
+      navigate('/vendor/register');
+    }
+  };
+
+
+
   const handleReferVendorClick = () => {
-    const customer = JSON.parse(localStorage.getItem('ql_customer'));
-    if (!customer || !customer.phone) {
+    if (!isAuthenticated) {
       setShowLogin(true);
     } else {
       navigate('/refer-vendor');
     }
   };
+
 
   return (
     <footer className="bg-black text-gray-400 px-10 py-12 mt-20">
@@ -43,7 +59,15 @@ const Footer = () => {
                 Refer a Vendor
               </button>
             </li>
-            <li><Link to="/vendor/register" className="hover:text-white cursor-pointer transition-colors text-sm">Become a Vendor</Link></li>
+            <li>
+              <button
+                onClick={handleBecomeVendorClick}
+                className="hover:text-white cursor-pointer transition-colors text-sm text-left block w-full"
+              >
+                Become a Vendor
+              </button>
+            </li>
+
             <li><Link to="/customer-hub" className="hover:text-white cursor-pointer transition-colors text-sm">Customer Hub</Link></li>
             <li><Link to="/about" className="hover:text-white cursor-pointer transition-colors text-sm">About Us</Link></li>
           </ul>
@@ -82,12 +106,15 @@ const Footer = () => {
         isOpen={showLogin}
         onClose={() => {
           setShowLogin(false);
-          const customer = JSON.parse(localStorage.getItem('ql_customer'));
-          if (customer && customer.phone) {
+          // If they logged in during the modal flow, navigate
+          if (localStorage.getItem('ql_customer') || localStorage.getItem('ql_user')) {
             navigate('/refer-vendor');
           }
         }}
+
+        isCheckoutFlow={false}
       />
+
     </footer>
   );
 };

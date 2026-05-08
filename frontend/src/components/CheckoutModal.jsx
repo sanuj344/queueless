@@ -216,7 +216,9 @@ export default function CheckoutModal() {
         onClose={() => setShowOTP(false)}
         onVerify={handlePlaceOrder}
         phone={guestInfo.phone}
+        isCheckoutFlow={true}
       />
+
     );
   }
 

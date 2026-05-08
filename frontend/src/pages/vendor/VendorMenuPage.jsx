@@ -1,12 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+
 import api from '../../utils/api';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
 import { formatCurrency } from '../../utils/formatCurrency';
+import { useAuth } from '../../context/AuthContext';
+
 
 export default function VendorMenuPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [items, setItems] = useState([]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -15,8 +21,12 @@ export default function VendorMenuPage() {
   const [editForm, setEditForm] = useState({ name: '', price: '', category: '' });
 
   useEffect(() => {
+    if (user && user.vendorType === 'salon') {
+      navigate('/vendor/services');
+    }
     fetchMenu();
-  }, []);
+  }, [user, navigate]);
+
 
   const fetchMenu = async () => {
     try {

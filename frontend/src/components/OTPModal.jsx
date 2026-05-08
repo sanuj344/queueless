@@ -2,7 +2,8 @@ import { useState } from 'react';
 import Modal from './Modal';
 import Button from './Button';
 
-export default function OTPModal({ isOpen, onClose, onVerify, phone }) {
+export default function OTPModal({ isOpen, onClose, onVerify, phone, isCheckoutFlow = false }) {
+
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -51,12 +52,9 @@ export default function OTPModal({ isOpen, onClose, onVerify, phone }) {
           onClick={handleVerify}
           disabled={otp.length !== 4}
         >
-          {(() => {
-            const searchParams = new URLSearchParams(window.location.search);
-            const isQRFlow = searchParams.get("vendorId") || localStorage.getItem("ql_vendor");
-            return isQRFlow ? "Verify & Place Order" : "Verify";
-          })()}
+          {isCheckoutFlow ? "Verify & Place Order" : "Verify"}
         </Button>
+
         
         <button 
           onClick={onClose}

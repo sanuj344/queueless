@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { formatCurrency } from '../../utils/formatCurrency';
@@ -10,6 +11,8 @@ const CATEGORIES = ['General', 'Hair', 'Skin', 'Nails', 'Massage', 'Makeup', 'Be
 
 export default function VendorServicesPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -18,8 +21,12 @@ export default function VendorServicesPage() {
   const [form, setForm] = useState({ name: '', price: '', duration: '30', category: 'General' });
 
   useEffect(() => {
+    if (user && user.vendorType !== 'salon') {
+      navigate('/vendor/dashboard');
+    }
     fetchServices();
-  }, [user]);
+  }, [user, navigate]);
+
 
   const fetchServices = async () => {
     if (!user?.id) return;

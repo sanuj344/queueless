@@ -11,6 +11,8 @@ export default function RegisterPage() {
   
   const [role, setRole] = useState('vendor');
   const [step, setStep] = useState(1);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
   const [formData, setFormData] = useState({
     name: '',
     outletName: '',
@@ -97,7 +99,12 @@ export default function RegisterPage() {
         setError('Invalid IFSC code format (e.g., SBIN0123456).');
         return;
       }
+      if (!acceptedTerms) {
+        setError('Please accept the Terms & Conditions and Privacy Policy to continue.');
+        return;
+      }
     }
+
 
     setIsLoading(true);
     
@@ -106,8 +113,10 @@ export default function RegisterPage() {
         ...formData,
         averagePrepTime: role === 'vendor' ? parseInt(formData.averagePrepTime) : undefined,
         hasGst: role === 'vendor' ? formData.hasGst : false,
-        gstNumber: role === 'vendor' ? formData.gstNumber : null
+        gstNumber: role === 'vendor' ? formData.gstNumber : null,
+        acceptedTerms: role === 'vendor' ? true : undefined
       };
+
       await register(payload, role);
       setSuccessMsg(`Your ${role} account was securely created! Redirecting to login...`);
       setTimeout(() => navigate('/auth'), 1500);
@@ -371,7 +380,34 @@ export default function RegisterPage() {
                     className="appearance-none block w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d4ff00]/20 focus:border-[#d4ff00] transition-all bg-white dark:bg-zinc-900/50 text-zinc-900 dark:text-white sm:text-sm font-mono uppercase"
                   />
                 </div>
+
+                {/* Terms and Privacy Checkbox */}
+                <div className="flex items-start gap-3 mt-6 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setAcceptedTerms(!acceptedTerms)}
+                    className={`shrink-0 w-5 h-5 rounded-md border transition-all flex items-center justify-center ${
+                      acceptedTerms
+                        ? "bg-[#d4ff00] border-[#d4ff00] text-black shadow-[0_0_15px_rgba(212,255,0,0.3)]"
+                        : "border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900"
+                    } hover:scale-110 active:scale-95`}
+                  >
+                    {acceptedTerms && <span className="text-[10px] font-black">✓</span>}
+                  </button>
+
+                  <p className="text-xs text-zinc-500 leading-relaxed select-none cursor-default">
+                    I agree to the{" "}
+                    <Link to="/terms" target="_blank" className="font-bold text-zinc-700 dark:text-zinc-300 underline underline-offset-2 hover:text-[#8cb800] dark:hover:text-[#d4ff00] transition-colors">
+                      Terms & Conditions
+                    </Link>{" "}
+                    and{" "}
+                    <Link to="/privacy" target="_blank" className="font-bold text-zinc-700 dark:text-zinc-300 underline underline-offset-2 hover:text-[#8cb800] dark:hover:text-[#d4ff00] transition-colors">
+                      Privacy Policy
+                    </Link>
+                  </p>
+                </div>
               </div>
+
             )}
 
             <div className="flex gap-3 pt-4">
@@ -388,8 +424,9 @@ export default function RegisterPage() {
                 type="submit" 
                 fullWidth={step === 1 && role === 'vendor' ? false : true}
                 className={step === 1 && role === 'vendor' ? 'flex-1' : 'w-full'}
-                disabled={isLoading || !!successMsg || !formData.password || formData.password.length < 6}
+                disabled={isLoading || !!successMsg || !formData.password || formData.password.length < 6 || (step === 2 && role === 'vendor' && !acceptedTerms)}
               >
+
                 {isLoading ? (
                   <span className="flex items-center justify-center gap-2">
                     <svg className="animate-spin h-5 w-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

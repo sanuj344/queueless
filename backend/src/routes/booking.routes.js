@@ -147,24 +147,79 @@ router.patch('/:id/pay', protect, restrictTo('vendor'), async (req, res, next) =
 router.patch('/:id', protect, restrictTo('vendor'), async (req, res, next) => {
   try {
     const { status } = req.body;
+    const updateData = {};
     
     if (req.body.stylistId) {
-      return res.status(400).json({ success: false, message: 'Stylist cannot be changed after booking' });
+
+      const booking = await prisma.booking.findUnique({ where: { id: req.params.id } });
+      if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+      
+      if (booking.stylistPreference === 'specific' && booking.stylistId && booking.stylistId !== req.body.stylistId) {
+        return res.status(400).json({ success: false, message: 'Stylist cannot be changed for specific requests' });
+      }
+
+      // Conflict check for the manually assigned stylist
+      const conflict = await prisma.booking.findFirst({
+        where: {
+          vendorId: req.user.id,
+          stylistId: req.body.stylistId,
+          slotTime: booking.slotTime,
+          status: { not: 'cancelled' },
+          id: { not: booking.id }
+        }
+      });
+
+      if (conflict) {
+        return res.status(400).json({ success: false, message: 'This stylist is already booked for this slot' });
+      }
+
+      updateData.stylistId = req.body.stylistId;
     }
+
 
     const validStatuses = ['accepted', 'in_service', 'completed', 'cancelled'];
     if (status && !validStatuses.includes(status)) {
       return res.status(400).json({ success: false, message: 'Invalid status' });
     }
 
-    const updateData = {};
     if (status) updateData.status = status;
+
     
-    if (status === 'in_service') {
+    if (status === 'accepted') {
+      const { tokenNumber } = req.body;
+      if (!tokenNumber || !/^\d{3}$/.test(tokenNumber)) {
+        return res.status(400).json({ success: false, message: '3-digit numeric token is required' });
+      }
+
+      // Duplicate check (Active Orders)
+      const duplicateOrder = await prisma.order.findFirst({
+        where: {
+          vendorId: req.user.id,
+          tokenNumber,
+          status: { notIn: ['completed', 'cancelled'] }
+        }
+      });
+
+      // Duplicate check (Active Bookings)
+      const duplicateBooking = await prisma.booking.findFirst({
+        where: {
+          vendorId: req.user.id,
+          tokenNumber,
+          status: { notIn: ['completed', 'cancelled'] }
+        }
+      });
+
+      if (duplicateOrder || duplicateBooking) {
+        return res.status(400).json({ success: false, message: 'Token already in use' });
+      }
+
+      updateData.tokenNumber = tokenNumber;
+    } else if (status === 'in_service') {
       updateData.serviceStartTime = new Date();
     } else if (status === 'completed') {
       updateData.serviceEndTime = new Date();
     }
+
 
     const booking = await prisma.booking.update({
       where: { id: req.params.id },

@@ -12,12 +12,23 @@ export default function Navbar() {
   const navigate = useNavigate();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showCustomerLogin, setShowCustomerLogin] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
 
   useEffect(() => {
-    const handleClickOutside = () => setIsDropdownOpen(false);
+    const handleClickOutside = () => {
+      setIsDropdownOpen(false);
+      setIsMobileMenuOpen(false);
+    };
     window.addEventListener('click', handleClickOutside);
     return () => window.removeEventListener('click', handleClickOutside);
   }, []);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
+
 
   // Admin pages have their own sidebar
   if (location.pathname.startsWith('/admin')) return null;
@@ -28,6 +39,12 @@ export default function Navbar() {
     `text-sm font-bold transition-colors ${
       active ? 'text-[#d4ff00]' : 'text-zinc-400 hover:text-white'
     }`;
+
+  const mobileNavLinkClass = (active) =>
+    `text-base font-bold transition-colors p-3 rounded-xl ${
+      active ? 'bg-[#d4ff00]/10 text-[#d4ff00]' : 'text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-white'
+    }`;
+
 
   return (
     <>
@@ -184,15 +201,108 @@ export default function Navbar() {
                   </Link>
                 </div>
               )}
+
+              {/* Hamburger Toggle */}
+              <button
+                onClick={(e) => { e.stopPropagation(); setIsMobileMenuOpen(!isMobileMenuOpen); }}
+                className="md:hidden flex items-center justify-center w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white transition-all active:scale-95"
+                aria-label="Toggle menu"
+              >
+                {isMobileMenuOpen ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                  </svg>
+                )}
+              </button>
             </div>
           </nav>
+
+          {/* Mobile Menu Dropdown */}
+          {isMobileMenuOpen && (
+            <div 
+              onClick={(e) => e.stopPropagation()}
+              className="md:hidden mt-2 mx-auto max-w-7xl px-2"
+            >
+              <div className="flex flex-col gap-1 p-3 rounded-2xl border border-zinc-200 dark:border-white/10 bg-white/95 dark:bg-black/90 backdrop-blur-2xl shadow-2xl shadow-black/20 animate-in slide-in-from-top-4 duration-300">
+                {customer ? (
+                  <>
+                    <Link to="/" className={mobileNavLinkClass(location.pathname === '/')}>Home</Link>
+                    <Link to={menuLink} className={mobileNavLinkClass(location.pathname === '/menu')}>Menu</Link>
+                    <Link to="/wallet" className={mobileNavLinkClass(location.pathname === '/wallet')}>Wallet</Link>
+                    <Link to="/refer" className={mobileNavLinkClass(location.pathname === '/refer')}>Referral</Link>
+                    <Link to="/your-orders" className={mobileNavLinkClass(location.pathname === '/your-orders')}>Your Orders</Link>
+                    <button
+                      onClick={() => {
+                        localStorage.removeItem('ql_customer');
+                        localStorage.removeItem('ql_last_order_id');
+                        window.location.href = '/';
+                      }}
+                      className="text-left text-base font-bold text-red-500 p-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 mt-2 border-t border-zinc-100 dark:border-zinc-800"
+                    >
+                      Logout
+                    </button>
+                  </>
+                ) : role === 'vendor' ? (
+                  <>
+                    <Link to="/vendor/dashboard" className={mobileNavLinkClass(location.pathname.includes('/vendor/dashboard'))}>Dashboard</Link>
+                    {user?.vendorType === 'salon' ? (
+                      <Link to="/vendor/services" className={mobileNavLinkClass(location.pathname === '/vendor/services')}>Manage Services</Link>
+                    ) : (
+                      <Link to="/vendor/menu" className={mobileNavLinkClass(location.pathname === '/vendor/menu')}>Manage Menu</Link>
+                    )}
+                    <Link to="/wallet" className={mobileNavLinkClass(location.pathname === '/wallet')}>Wallet</Link>
+                    <Link to="/refer" className={mobileNavLinkClass(location.pathname === '/refer')}>Referral</Link>
+                    <button
+                      onClick={logout}
+                      className="text-left text-base font-bold text-red-500 p-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 mt-2 border-t border-zinc-100 dark:border-zinc-800"
+                    >
+                      Logout
+                    </button>
+                  </>
+                ) : role === 'admin' ? (
+                  <>
+                    <Link to="/admin/dashboard" className={mobileNavLinkClass(location.pathname.includes('dashboard'))}>Dashboard</Link>
+                    <button
+                      onClick={logout}
+                      className="text-left text-base font-bold text-red-500 p-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 mt-2 border-t border-zinc-100 dark:border-zinc-800"
+                    >
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/" className={mobileNavLinkClass(location.pathname === '/')}>Home</Link>
+                    <button
+                      onClick={() => setShowCustomerLogin(true)}
+                      className="text-left text-base font-bold text-zinc-900 dark:text-white p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    >
+                      Customer Login
+                    </button>
+                    <Link to="/auth" className="text-base font-black text-black bg-[#d4ff00] p-3 rounded-xl text-center mt-2 shadow-lg shadow-[#d4ff00]/20 active:scale-95 transition-transform">
+                      Business Login
+                    </Link>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </div>
+
       </header>
 
       <CustomerLoginModal 
         isOpen={showCustomerLogin} 
         onClose={() => setShowCustomerLogin(false)} 
+        isCheckoutFlow={false}
       />
+
     </>
   );
 }

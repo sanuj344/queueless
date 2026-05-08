@@ -11,7 +11,8 @@ export default function VendorDashboard() {
   const { user, setUser } = useAuth();
   const [vendorType, setVendorType] = useState(user?.vendorType || 'food');
   const isSalon = vendorType === 'salon';
-  const [activeTab, setActiveTab] = useState(user?.vendorType === 'salon' ? 'bookings' : 'orders');
+  const [activeTab, setActiveTab] = useState('orders'); // Default to orders for both, or bookings for salon if preferred
+
   const [orders, setOrders] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [qrData, setQrData] = useState(null);
@@ -19,6 +20,8 @@ export default function VendorDashboard() {
   const [error, setError] = useState('');
   const [showInstructions, setShowInstructions] = useState(false);
   const [stylists, setStylists] = useState([]);
+  const [tokenModal, setTokenModal] = useState({ isOpen: false, type: '', id: '', token: '' });
+
   
   const audioRef = useRef(null);
   const prevOrdersCount = useRef(0);
@@ -92,8 +95,9 @@ export default function VendorDashboard() {
   useEffect(() => {
     fetchOrders();
     fetchQr();
+    fetchBookings(); // Both might have bookings/slots now
+    
     if (isSalon) {
-      fetchBookings();
       fetchStylists();
     }
     
@@ -102,7 +106,7 @@ export default function VendorDashboard() {
 
     const interval = setInterval(() => {
       fetchOrders();
-      if (isSalon) fetchBookings();
+      fetchBookings();
     }, 5000);
     window.addEventListener('orderPlaced', fetchOrders);
     return () => {
@@ -116,19 +120,59 @@ export default function VendorDashboard() {
     localStorage.setItem('ql_instructions_seen', 'true');
   };
 
-  const updateOrderStatus = async (id, newStatus) => {
+  const updateOrderStatus = async (id, newStatus, payload = {}) => {
     try {
       const order = orders.find(o => o.id === id);
       if (newStatus === 'accepted' && order?.expiresAt && new Date() > new Date(order.expiresAt)) {
         alert('This order has expired.');
         return;
       }
-      await api.patch(`/orders/${id}`, { status: newStatus });
+      await api.patch(`/orders/${id}`, { status: newStatus, ...payload });
       fetchOrders();
     } catch (err) {
-      console.error('Failed to update order status');
+      alert(err.response?.data?.message || 'Failed to update order status');
     }
   };
+
+  const updateBookingStatus = async (id, newStatus, payload = {}) => {
+    try {
+      await api.patch(`/bookings/${id}`, { status: newStatus, ...payload });
+      fetchBookings();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update booking status');
+    }
+  };
+
+  const handleAcceptWithToken = (type, id) => {
+    setTokenModal({ isOpen: true, type, id, token: '' });
+  };
+
+  const submitToken = async () => {
+    if (!/^\d{3}$/.test(tokenModal.token)) {
+      alert('Token must be a 3-digit number');
+      return;
+    }
+
+    if (tokenModal.type === 'order') {
+      await updateOrderStatus(tokenModal.id, 'accepted', { tokenNumber: tokenModal.token });
+    } else {
+      await updateBookingStatus(tokenModal.id, 'accepted', { tokenNumber: tokenModal.token });
+    }
+
+    setTokenModal({ isOpen: false, type: '', id: '', token: '' });
+  };
+  
+  const handleDeleteStylist = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this stylist?')) return;
+    try {
+      await api.delete(`/vendor/stylists/${id}`);
+      fetchStylists();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to delete stylist');
+    }
+  };
+
+
 
   const sortedOrders = [...orders].sort((a, b) => (a.tokenIndex || 0) - (b.tokenIndex || 0));
 
@@ -147,30 +191,27 @@ export default function VendorDashboard() {
       <audio ref={audioRef} src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" />
 
       {/* Tabs */}
-      <div className="max-w-7xl mx-auto flex gap-4 mb-8">
-        {!isSalon && (
-          <button 
-            onClick={() => setActiveTab('orders')}
-            className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'orders' ? 'bg-[#d4ff00] text-black shadow-lg shadow-[#d4ff00]/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-white'}`}
-          >
-            Live Orders
-          </button>
-        )}
-        {isSalon && (
-          <button 
-            onClick={() => setActiveTab('bookings')}
-            className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'bookings' ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-white'}`}
-          >
-            Bookings
-          </button>
-        )}
+      <div className="max-w-7xl mx-auto flex gap-4 mb-8 overflow-x-auto pb-2 scrollbar-none">
+        <button 
+          onClick={() => setActiveTab('orders')}
+          className={`px-6 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'orders' ? 'bg-[#d4ff00] text-black shadow-lg shadow-[#d4ff00]/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-white'}`}
+        >
+          Live Orders
+        </button>
+        <button 
+          onClick={() => setActiveTab('bookings')}
+          className={`px-6 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'bookings' ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-white'}`}
+        >
+          {isSalon ? 'Bookings' : 'Slot Booking'}
+        </button>
         <button 
           onClick={() => setActiveTab('qr')}
-          className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'qr' ? 'bg-[#d4ff00] text-black shadow-lg shadow-[#d4ff00]/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-white'}`}
+          className={`px-6 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'qr' ? 'bg-[#d4ff00] text-black shadow-lg shadow-[#d4ff00]/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-white'}`}
         >
           Digital QR
         </button>
       </div>
+
 
       {activeTab === 'orders' ? (
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8">
@@ -189,9 +230,10 @@ export default function VendorDashboard() {
             <div className="space-y-4">
               {pendingOrders.map((order) => (
                 <OrderCard key={order.id} order={order}>
-                  <Button size="sm" fullWidth onClick={() => updateOrderStatus(order.id, 'accepted')}>
+                  <Button size="sm" fullWidth onClick={() => handleAcceptWithToken('order', order.id)}>
                     Accept Order
                   </Button>
+
                 </OrderCard>
               ))}
               {pendingOrders.length === 0 && <EmptyState text="No incoming orders right now." />}
@@ -249,12 +291,14 @@ export default function VendorDashboard() {
         </div>
       ) : activeTab === 'bookings' ? (
         <div className="max-w-7xl mx-auto">
-          <h2 className="text-xl font-black mb-6 text-zinc-900 dark:text-white">Salon Bookings</h2>
+          <h2 className="text-xl font-black mb-6 text-zinc-900 dark:text-white">{isSalon ? 'Salon Bookings' : 'Slot Bookings'}</h2>
+
           {bookings.length === 0 ? (
             <div className="text-center py-20 text-zinc-400">
-              <div className="text-5xl mb-4">💇</div>
+              <div className="text-5xl mb-4">{isSalon ? '💇' : '📅'}</div>
               <p className="font-bold">No bookings yet.</p>
             </div>
+
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {bookings.map(booking => {
@@ -269,16 +313,56 @@ export default function VendorDashboard() {
                         booking.status === 'completed' ? 'border-emerald-500/30 text-emerald-500 bg-emerald-500/10' :
                         'border-red-500/30 text-red-500 bg-red-500/10'
                       }`}>{booking.status.replace('_', ' ')}</span>
-                      {booking.tokenNumber && <span className="text-[10px] font-black text-zinc-500">Token: {booking.tokenNumber}</span>}
+                      {booking.tokenNumber ? (
+                        <span className="text-[10px] font-black text-zinc-500">Token: {booking.tokenNumber}</span>
+                      ) : (
+                        <span className="text-[10px] font-black text-zinc-400">Token: Pending</span>
+                      )}
+
                     </div>
                     <div>
                       <p className="font-black text-zinc-900 dark:text-white">{booking.customerName}</p>
                       <p className="text-xs text-zinc-500 font-mono">{booking.customerPhone}</p>
                     </div>
                     <p className="text-xs font-bold text-purple-600 dark:text-purple-400">📅 {slot}</p>
-                    {booking.stylist && (
-                      <p className="text-[10px] font-black uppercase text-zinc-500">Stylist: <span className="text-purple-500">{booking.stylist.name}</span></p>
+                    {isSalon && (
+                      <div className="flex flex-col gap-1.5">
+                        <p className="text-[10px] font-black uppercase text-zinc-500">
+                          {booking.stylistPreference === 'anyone' ? (
+                            <>Stylist Preference: <span className="text-purple-500">Anyone</span></>
+                          ) : (
+                            <>Assigned Stylist: <span className="text-purple-500">{booking.stylist?.name || 'None'}</span></>
+                          )}
+                        </p>
+                        {booking.stylistPreference === 'anyone' && !['completed', 'cancelled'].includes(booking.status) && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] text-zinc-400 font-bold uppercase">Assign:</span>
+                            <select 
+                              className="text-[10px] bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1 outline-none focus:border-purple-500 transition-colors"
+                              value={booking.stylistId || ''}
+                              onChange={async (e) => {
+                                const val = e.target.value;
+                                if (!val) return;
+                                try {
+                                  await api.patch(`/bookings/${booking.id}`, { stylistId: val });
+                                  fetchBookings();
+                                } catch (err) {
+                                  alert(err.response?.data?.message || 'Failed to assign stylist');
+                                }
+                              }}
+                            >
+                              <option value="">Select Stylist</option>
+                              {stylists.map(s => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                      </div>
                     )}
+
+
+
                     {Array.isArray(booking.services) && (
                       <div className="text-xs text-zinc-500 space-y-0.5">
                         {booking.services.map((s, i) => <p key={i}>✂️ {s.name} — ₹{s.price}</p>)}
@@ -306,11 +390,12 @@ export default function VendorDashboard() {
 
                     <div className="pt-2 flex flex-col gap-2">
                       {booking.status === 'placed' && (
-                        <button onClick={async () => { await api.patch(`/bookings/${booking.id}`, { status: 'accepted' }); fetchBookings(); }}
+                        <button onClick={() => handleAcceptWithToken('booking', booking.id)}
                           className="w-full py-2.5 text-xs font-black bg-[#d4ff00] text-black rounded-xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-[#d4ff00]/10">
                           Accept Booking
                         </button>
                       )}
+
                       {booking.status === 'accepted' && (
                         <button onClick={async () => { await api.patch(`/bookings/${booking.id}`, { status: 'in_service' }); fetchBookings(); }}
                           className="w-full py-2.5 text-xs font-black bg-purple-500 text-white rounded-xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-purple-500/10">
@@ -323,17 +408,18 @@ export default function VendorDashboard() {
                           Complete Service
                         </button>
                       )}
-                      {booking.status === 'completed' && booking.paymentStatus === 'pending' && (
+                      {isSalon && booking.status === 'completed' && booking.paymentStatus === 'pending' && (
                         <button onClick={async () => { await api.patch(`/bookings/${booking.id}/pay`); fetchBookings(); }}
                           className="w-full py-2.5 text-xs font-black bg-[#d4ff00] text-black rounded-xl hover:scale-[1.02] active:scale-95 transition-all">
                           Mark as Paid (₹{booking.totalAmount})
                         </button>
                       )}
-                      {booking.paymentStatus === 'paid' && booking.status === 'completed' && (
+                      {isSalon && booking.paymentStatus === 'paid' && booking.status === 'completed' && (
                         <div className="text-center py-2 text-xs font-black text-emerald-500 uppercase tracking-widest">
                           Paid ✓
                         </div>
                       )}
+
                     </div>
                   </div>
                 );
@@ -398,40 +484,55 @@ export default function VendorDashboard() {
           </Card>
 
           {/* Stylist Management */}
-          <Card className="mt-8 p-8 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-2xl">
-            <div className="text-left w-full">
-              <h3 className="text-lg font-black text-zinc-900 dark:text-white mb-1">Manage Stylists</h3>
-              <p className="text-xs text-zinc-500 mb-6">Add your team members to assign them to bookings.</p>
-              
-              <div className="flex gap-2 mb-6">
-                <input 
-                  type="text" 
-                  placeholder="Stylist Name" 
-                  id="new-stylist-name"
-                  className="flex-1 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2 text-sm outline-none focus:border-[#d4ff00]"
-                />
-                <Button size="sm" onClick={async () => {
-                  const input = document.getElementById('new-stylist-name');
-                  if (!input.value.trim()) return;
-                  await api.post('/vendor/stylists', { name: input.value });
-                  input.value = '';
-                  fetchStylists();
-                }}>
-                  Add
-                </Button>
-              </div>
+          {isSalon && (
+            <Card className="mt-8 p-8 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-2xl">
+              <div className="text-left w-full">
+                <h3 className="text-lg font-black text-zinc-900 dark:text-white mb-1">Manage Stylists</h3>
+                <p className="text-xs text-zinc-500 mb-6">Add your team members to assign them to bookings.</p>
+                
+                <div className="flex gap-2 mb-6">
+                  <input 
+                    type="text" 
+                    placeholder="Stylist Name" 
+                    id="new-stylist-name"
+                    className="flex-1 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2 text-sm outline-none focus:border-[#d4ff00]"
+                  />
+                  <Button size="sm" onClick={async () => {
+                    const input = document.getElementById('new-stylist-name');
+                    if (!input.value.trim()) return;
+                    await api.post('/vendor/stylists', { name: input.value });
+                    input.value = '';
+                    fetchStylists();
+                  }}>
+                    Add
+                  </Button>
+                </div>
 
-              <div className="space-y-2">
-                {stylists.map(s => (
-                  <div key={s.id} className="flex justify-between items-center p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-700">
-                    <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">{s.name}</span>
-                    <span className="text-[10px] text-zinc-400 uppercase font-black">Active</span>
-                  </div>
-                ))}
-                {stylists.length === 0 && <p className="text-center text-zinc-400 text-xs py-4">No stylists added yet.</p>}
+                <div className="space-y-2">
+                  {stylists.map(s => (
+                    <div key={s.id} className="flex justify-between items-center p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-700">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">{s.name}</span>
+                        <span className="text-[10px] text-zinc-400 uppercase font-black">Active</span>
+                      </div>
+                      <button 
+                        onClick={() => handleDeleteStylist(s.id)}
+                        className="p-2 text-zinc-400 hover:text-red-500 transition-colors"
+                        title="Delete Stylist"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+
+                  {stylists.length === 0 && <p className="text-center text-zinc-400 text-xs py-4">No stylists added yet.</p>}
+                </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+          )}
+
         </div>
       )}
 
@@ -439,7 +540,37 @@ export default function VendorDashboard() {
         isOpen={showInstructions} 
         onClose={handleCloseInstructions} 
       />
+
+      {/* Manual Token Assignment Modal */}
+      {tokenModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-zinc-900 rounded-[2rem] border border-zinc-200 dark:border-zinc-800 w-full max-w-sm p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-black text-zinc-900 dark:text-white mb-2">Assign Token</h3>
+            <p className="text-sm text-zinc-500 mb-6">Enter a 3-digit token number for this {tokenModal.type}.</p>
+            
+            <input 
+              autoFocus
+              type="text" 
+              maxLength="3"
+              placeholder="e.g. 102"
+              value={tokenModal.token}
+              onChange={(e) => setTokenModal(prev => ({ ...prev, token: e.target.value.replace(/\D/g, '') }))}
+              className="w-full bg-zinc-50 dark:bg-zinc-800 border-2 border-zinc-200 dark:border-zinc-700 rounded-2xl px-6 py-4 text-2xl font-black tracking-[0.5em] text-center outline-none focus:border-[#d4ff00] transition-all mb-6"
+            />
+            
+            <div className="flex gap-3">
+              <Button variant="outline" fullWidth onClick={() => setTokenModal({ isOpen: false, type: '', id: '', token: '' })}>
+                Cancel
+              </Button>
+              <Button fullWidth onClick={submitToken} disabled={tokenModal.token.length !== 3}>
+                Confirm & Accept
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+
   );
 }
 
@@ -491,11 +622,16 @@ function OrderCard({ order, children }) {
              <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${statusColors[order.status]}`}>
                {order.status}
              </span>
-             {order.tokenNumber && (
+             {order.tokenNumber ? (
                <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
                  Token: {order.tokenNumber}
                </span>
+             ) : (
+               <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-zinc-500/10 text-zinc-500 border border-zinc-500/20">
+                 Token: Pending
+               </span>
              )}
+
              <span className="text-[10px] font-bold text-zinc-600">ID: {order.id.slice(0, 8)}</span>
           </div>
           <h4 className="font-black text-zinc-900 dark:text-white truncate">{order.customerName}</h4>

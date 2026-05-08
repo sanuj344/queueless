@@ -153,10 +153,18 @@ export default function BookingStatusPage() {
         </h1>
         <div className="mt-4 p-4 rounded-3xl bg-purple-500/10 border border-purple-500/20 inline-block">
           <h2 className="text-xl font-black text-purple-600 dark:text-purple-400">{slotStr}</h2>
-          {booking.stylist && (
+          {booking.stylistPreference === 'anyone' ? (
+            <p className="text-xs text-zinc-500 mt-1">Stylist: <strong>Will be assigned by salon</strong></p>
+          ) : booking.stylist && (
             <p className="text-xs text-zinc-500 mt-1">Stylist: <strong>{booking.stylist.name}</strong></p>
           )}
-          {booking.tokenNumber && <p className="text-xs text-zinc-500 mt-1">Token: <strong>{booking.tokenNumber}</strong></p>}
+
+          {booking.tokenNumber ? (
+            <p className="text-xs text-zinc-500 mt-1">Token: <strong>{booking.tokenNumber}</strong></p>
+          ) : (
+            <p className="text-xs text-zinc-400 mt-1 italic animate-pulse">Waiting for token assignment...</p>
+          )}
+
         </div>
       </div>
 

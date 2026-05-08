@@ -158,12 +158,18 @@ export default function OrderStatusPage() {
           <h1 className="text-3xl font-black text-zinc-900 dark:text-white">
             {currentStep < 4 ? 'Hang tight!' : currentStep === 4 ? 'Ready! 🎉' : 'Enjoy your meal!'}
           </h1>
-          {order.tokenNumber && (
+          {order.tokenNumber ? (
             <div className="mt-4 p-4 rounded-3xl bg-[#d4ff00]/10 border border-[#d4ff00]/20 inline-block">
               <p className="text-[10px] font-black uppercase tracking-widest text-[#8cb800] dark:text-[#d4ff00] mb-1">Your Token</p>
               <h2 className="text-4xl font-black text-[#8cb800] dark:text-[#d4ff00]">{order.tokenNumber}</h2>
             </div>
+          ) : (
+            <div className="mt-4 p-4 rounded-3xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 inline-block">
+              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">Token Status</p>
+              <h2 className="text-sm font-bold text-zinc-400">Waiting for assignment...</h2>
+            </div>
           )}
+
         </div>
 
         <div className="w-full max-w-md rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-6 sm:p-8 mb-8 shadow-xl">

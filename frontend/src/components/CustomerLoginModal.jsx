@@ -6,8 +6,9 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import api from '../utils/api';
 
-export default function CustomerLoginModal({ isOpen, onClose }) {
+export default function CustomerLoginModal({ isOpen, onClose, isCheckoutFlow = false }) {
   const { setCustomerSession } = useAuth();
+
   const [info, setInfo] = useState({ name: '', phone: '' });
   const [step, setStep] = useState(1); // 1: Info, 2: OTP
   const [loading, setLoading] = useState(false);
@@ -75,8 +76,10 @@ export default function CustomerLoginModal({ isOpen, onClose }) {
         onClose={() => setStep(1)}
         onVerify={handleVerify}
         phone={info.phone}
+        isCheckoutFlow={isCheckoutFlow}
       />
     );
+
   }
 
   return (
@@ -129,12 +132,9 @@ export default function CustomerLoginModal({ isOpen, onClose }) {
           onClick={handleContinue}
           disabled={info.phone.length !== 10}
         >
-          {(() => {
-            const searchParams = new URLSearchParams(window.location.search);
-            const isQRFlow = searchParams.get("vendorId") || localStorage.getItem("ql_vendor");
-            return isQRFlow ? "Verify & Place Order" : "Verify";
-          })()}
+          {isCheckoutFlow ? "Verify & Place Order" : "Verify"}
         </Button>
+
         
         <p className="text-[10px] text-zinc-400 text-center mt-6 uppercase tracking-widest">
           Secure login via <span className="text-[#8cb800] dark:text-[#d4ff00] font-bold">QueueLess OTP</span>
