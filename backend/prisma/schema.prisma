@@ -40,7 +40,15 @@ model User {
   wallet            Wallet?
   vendorTokenIndex  Int      @default(0)
   stylists          Stylist[]
+  
+  // Food Slot Configuration
+  slotDuration      Int?     @default(30)
+  maxOrdersPerSlot  Int?     @default(5)
+  openingTime       String?  @default("09:00")
+  closingTime       String?  @default("21:00")
+  slotEnabled       Boolean  @default(false)
 }
+
 
 model Service {
   id          String   @id @default(uuid())
@@ -144,7 +152,18 @@ model Order {
   acceptedAt    DateTime?
   preparingAt   DateTime?
   readyAt       DateTime?
+  
+  // Scheduling & Activation
+  scheduledDate     String?
+  scheduledSlot     String?
+  slotDateTime      DateTime?
+  scheduledTime     DateTime?
+  activationTime    DateTime?
+  isActivated       Boolean     @default(true)
+  activatedAt       DateTime?
 }
+
+
 
 model Wallet {
   id         String    @id @default(uuid())

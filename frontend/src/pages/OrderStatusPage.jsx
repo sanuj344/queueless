@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 import ReviewModal from '../components/ReviewModal';
 
-const STATUS_STEPS = { pending: 1, accepted: 2, preparing: 3, ready: 4, completed: 5 };
+const STATUS_STEPS = { upcoming: 0, pending: 1, placed: 1, live: 1, accepted: 2, preparing: 3, ready: 4, completed: 5 };
 const STEPS_DATA = [
   { id: 1, label: 'Order Placed' },
   { id: 2, label: 'Accepted by Vendor' },
@@ -149,6 +149,50 @@ export default function OrderStatusPage() {
     }
 
     const currentStep = STATUS_STEPS[order.status] || 1;
+
+    if (order.status === 'upcoming') {
+      return (
+        <div className="min-h-screen bg-white dark:bg-black flex flex-col items-center justify-center px-4 pt-24 pb-12 text-center">
+          <div className="w-20 h-20 bg-purple-500/10 rounded-[2.5rem] flex items-center justify-center mb-6">
+            <span className="text-3xl">📅</span>
+          </div>
+          <h1 className="text-3xl font-black text-purple-500">Order Scheduled</h1>
+          <p className="text-zinc-900 dark:text-white font-bold mt-4 text-xl">
+            Scheduled for {new Date(order.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </p>
+          <p className="text-zinc-500 mt-2 max-w-xs leading-relaxed">
+            Your order is scheduled for {new Date(order.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.
+            Kitchen preparation will begin closer to your slot.
+          </p>
+          
+          <div className="w-full max-w-md mt-8 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 shadow-xl">
+            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-4 text-left">Order Summary</p>
+            <div className="space-y-3">
+              {order.items.map((item, i) => (
+                <div key={i} className="flex justify-between items-center text-sm">
+                  <span className="text-zinc-600 dark:text-zinc-300 font-medium">{item.name} × {item.quantity}</span>
+                  <span className="font-bold text-zinc-900 dark:text-white">₹{item.price * item.quantity}</span>
+                </div>
+              ))}
+              <div className="pt-3 border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
+                <span className="font-black text-zinc-900 dark:text-white">Total Amount</span>
+                <span className="font-black text-[#d4ff00] text-lg">₹{order.totalAmount}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3 w-full max-w-md mt-8">
+            <Link to={`/menu?vendorId=${order.vendorId}`} className="flex-1">
+              <Button variant="outline" fullWidth size="lg">Order More</Button>
+            </Link>
+            <Link to="/" className="flex-1">
+              <Button fullWidth size="lg">Home</Button>
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-white dark:bg-black flex flex-col items-center justify-center px-4 pt-24 pb-12">
         <div className="mb-8 text-center">

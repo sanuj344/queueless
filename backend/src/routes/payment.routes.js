@@ -146,8 +146,45 @@ router.post('/verify', async (req, res, next) => {
 
 
     // 🍔 Food Order (existing logic)
-    const { items, deliveryTime } = orderData;
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    const { items, deliveryTime, scheduledDate, scheduledSlot, slotDateTime } = orderData;
+    
+    // Fetch vendor for prep time
+    const vendor = await prisma.user.findUnique({
+      where: { id: vendorId },
+      select: { averagePrepTime: true }
+    });
+
+    const isScheduled = !!slotDateTime;
+    const now = new Date();
+    let status = 'live';
+    let isActivated = true;
+    let activationTime = null;
+    let activatedAt = now;
+    let expiresAt = new Date(now.getTime() + 5 * 60 * 1000);
+
+    if (isScheduled) {
+      const scheduledTime = new Date(slotDateTime);
+      const prepTime = vendor?.averagePrepTime || 10;
+      const cutOffTime = new Date(scheduledTime.getTime() - prepTime * 60 * 1000);
+
+      if (now > cutOffTime) {
+        return res.status(400).json({ success: false, message: 'This slot is no longer available. Please choose a later time.' });
+      }
+
+      activationTime = new Date(scheduledTime.getTime() - prepTime * 60 * 1000);
+      
+      // If activation time is in the past, activate immediately
+      if (activationTime <= now) {
+        status = 'live';
+        isActivated = true;
+        activatedAt = now;
+      } else {
+        status = 'upcoming';
+        isActivated = false;
+        activatedAt = null;
+        expiresAt = null; // Auto-cancel starts only after activation
+      }
+    }
 
     const createdOrder = await prisma.order.create({
       data: {
@@ -159,16 +196,23 @@ router.post('/verify', async (req, res, next) => {
         totalAmount: parseFloat(totalAmount),
         platformFee: parseFloat(platformFee || 0),
         finalAmount: parseFloat(finalAmount || totalAmount),
-        status: 'placed',
+        status,
         paymentMethod: 'razorpay',
         paymentStatus: 'paid',
         deliveryTime: deliveryTime || 'ASAP',
         expiresAt,
         tokenNumber: null,
-        tokenIndex: null
-
+        tokenIndex: null,
+        scheduledDate,
+        scheduledSlot,
+        slotDateTime: slotDateTime ? new Date(slotDateTime) : null,
+        scheduledTime: slotDateTime ? new Date(slotDateTime) : null,
+        activationTime,
+        isActivated,
+        activatedAt
       }
     });
+
 
     res.json({
       success: true,
@@ -296,6 +340,38 @@ router.post('/wallet-pay', async (req, res, next) => {
       return res.json({ success: true, order: recentOrder });
     }
 
+    // 🍔 Pre-validation for Slots/Stylists before wallet deduction
+    const { vendorId } = orderData;
+    const vendor = await prisma.user.findUnique({
+      where: { id: vendorId },
+      select: { averagePrepTime: true, vendorType: true }
+    });
+
+    if (orderData.type === 'salon') {
+      const { slotTime, stylistId, stylistPreference } = orderData;
+      const slotDateTime = new Date(slotTime);
+      if (stylistPreference === 'specific' && stylistId) {
+        const existingSlot = await prisma.booking.count({
+          where: { vendorId, slotTime: slotDateTime, stylistId, status: { not: 'cancelled' } }
+        });
+        if (existingSlot >= 1) {
+          return res.status(409).json({ success: false, message: 'This stylist is already booked for this slot.' });
+        }
+      }
+    } else {
+      // Food Order Validation
+      const { slotDateTime } = orderData;
+      if (slotDateTime) {
+        const now = new Date();
+        const scheduledTime = new Date(slotDateTime);
+        const prepTime = vendor?.averagePrepTime || 10;
+        const cutOffTime = new Date(scheduledTime.getTime() - prepTime * 60 * 1000);
+        if (now > cutOffTime) {
+          return res.status(400).json({ success: false, message: 'This slot is no longer available. Please choose a later time.' });
+        }
+      }
+    }
+
     // Deduct wallet balance
     await prisma.wallet.update({
       where: { id: wallet.id },
@@ -311,7 +387,7 @@ router.post('/wallet-pay', async (req, res, next) => {
       }
     });
 
-    const { customerName, customerPhone, vendorId, totalAmount, platformFee, finalAmount } = orderData;
+    const { customerName, customerPhone, totalAmount, platformFee, finalAmount } = orderData;
     // const token = await generateVendorToken(vendorId); // REMOVED
 
 
@@ -321,31 +397,7 @@ router.post('/wallet-pay', async (req, res, next) => {
       const slotDateTime = new Date(slotTime);
 
       if (stylistPreference === 'specific' && stylistId) {
-        const existingSlot = await prisma.booking.count({
-          where: {
-            vendorId,
-            slotTime: slotDateTime,
-            stylistId,
-            status: { not: 'cancelled' }
-          }
-        });
-        
-        if (existingSlot >= 1) {
-          // Refund wallet since slot is taken
-          await prisma.wallet.update({
-            where: { id: wallet.id },
-            data: { balance: { increment: finalCommission } }
-          });
-          await prisma.walletTransaction.create({
-            data: {
-              walletId: wallet.id,
-              amount: finalCommission,
-              type: 'credit',
-              source: 'order' // Refund
-            }
-          });
-          return res.status(409).json({ success: false, message: 'This stylist is already booked for this slot. Please choose another time.' });
-        }
+        // Validation already done upfront
       }
 
       const booking = await prisma.booking.create({
@@ -367,8 +419,32 @@ router.post('/wallet-pay', async (req, res, next) => {
     }
 
     // 🍔 Food Order
-    const { items, deliveryTime } = orderData;
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    const { items, deliveryTime, scheduledDate, scheduledSlot, slotDateTime } = orderData;
+    
+    const isScheduled = !!slotDateTime;
+    const now = new Date();
+    let status = 'live';
+    let isActivated = true;
+    let activationTime = null;
+    let activatedAt = now;
+    let expiresAt = new Date(now.getTime() + 5 * 60 * 1000);
+
+    if (isScheduled) {
+      const scheduledTime = new Date(slotDateTime);
+      const prepTime = vendor?.averagePrepTime || 10;
+      activationTime = new Date(scheduledTime.getTime() - prepTime * 60 * 1000);
+      
+      if (activationTime <= now) {
+        status = 'live';
+        isActivated = true;
+        activatedAt = now;
+      } else {
+        status = 'upcoming';
+        isActivated = false;
+        activatedAt = null;
+        expiresAt = null;
+      }
+    }
 
     const createdOrder = await prisma.order.create({
       data: {
@@ -376,12 +452,19 @@ router.post('/wallet-pay', async (req, res, next) => {
         items, totalAmount: parseFloat(totalAmount),
         platformFee: parseFloat(platformFee || 0),
         finalAmount: parseFloat(finalAmount || totalAmount),
-        status: 'placed', paymentMethod: 'wallet', paymentStatus: 'paid',
+        status, paymentMethod: 'wallet', paymentStatus: 'paid',
         deliveryTime: deliveryTime || 'ASAP', expiresAt,
-        tokenNumber: null, tokenIndex: null
-
+        tokenNumber: null, tokenIndex: null,
+        scheduledDate,
+        scheduledSlot,
+        slotDateTime: slotDateTime ? new Date(slotDateTime) : null,
+        scheduledTime: slotDateTime ? new Date(slotDateTime) : null,
+        activationTime,
+        isActivated,
+        activatedAt
       }
     });
+
 
     if (orderData?.clientOrderId) {
       clientOrderIdCache.set(orderData.clientOrderId, createdOrder);

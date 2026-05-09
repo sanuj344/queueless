@@ -33,6 +33,11 @@ router.get('/profile', protect, restrictTo('vendor'), async (req, res, next) => 
         averagePrepTime: true,
         role: true,
         vendorType: true,
+        slotDuration: true,
+        maxOrdersPerSlot: true,
+        openingTime: true,
+        closingTime: true,
+        slotEnabled: true,
         referralCode: true,
         isApproved: true,
         createdAt: true
@@ -43,6 +48,26 @@ router.get('/profile', protect, restrictTo('vendor'), async (req, res, next) => 
     next(error);
   }
 });
+
+router.patch('/profile', protect, restrictTo('vendor'), async (req, res, next) => {
+  try {
+    const { slotDuration, maxOrdersPerSlot, openingTime, closingTime, slotEnabled } = req.body;
+    const updated = await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        slotDuration: slotDuration !== undefined ? parseInt(slotDuration) : undefined,
+        maxOrdersPerSlot: maxOrdersPerSlot !== undefined ? parseInt(maxOrdersPerSlot) : undefined,
+        openingTime,
+        closingTime,
+        slotEnabled
+      }
+    });
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
 
 // GET /vendor/stylists — returns all stylists for the vendor
 router.get('/stylists', protect, restrictTo('vendor'), async (req, res, next) => {

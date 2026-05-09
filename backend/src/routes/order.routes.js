@@ -137,8 +137,8 @@ router.patch('/:id/cancel', async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
 
-    // Allow if status is placed or pending
-    if (order.status !== 'placed' && order.status !== 'pending') {
+    // Allow if status is placed, pending, live or upcoming
+    if (order.status !== 'placed' && order.status !== 'pending' && order.status !== 'live' && order.status !== 'upcoming') {
       return res.status(400).json({
         success: false,
         message: 'Order cannot be cancelled after preparation starts'

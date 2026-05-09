@@ -7,6 +7,9 @@ import api from '../utils/api';
 import Modal from './Modal';
 import Button from './Button';
 import OTPModal from './OTPModal';
+import FoodSlotPicker from './FoodSlotPicker';
+import toast from 'react-hot-toast';
+
 
 export default function CheckoutModal() {
   const navigate = useNavigate();
@@ -25,6 +28,9 @@ export default function CheckoutModal() {
   const [paymentMethod, setPaymentMethod] = useState('razorpay');
   const [walletBalance, setWalletBalance] = useState(null);
   const [walletCustomerId, setWalletCustomerId] = useState(null);
+  const [vendor, setVendor] = useState(null);
+  const [selectedSlotData, setSelectedSlotData] = useState(null);
+
 
   const calculatePlatformFee = (amount) => {
     if (amount < 200) return 5;
@@ -58,8 +64,18 @@ export default function CheckoutModal() {
       });
       setError('');
       setShowOTP(false);
+      
+      // Fetch vendor details to check slot booking support
+      const vendorId = activeVendorId || items[0]?.vendorId;
+      if (vendorId) {
+        api.get(`/vendors/${vendorId}`)
+          .then(res => setVendor(res.data.data))
+          .catch(err => console.error('Failed to fetch vendor:', err));
+      }
     }
-  }, [isCheckoutOpen, customer]);
+  }, [isCheckoutOpen, customer, activeVendorId, items]);
+
+
 
   const handleContinue = () => {
     if (!guestInfo.name.trim() || !guestInfo.phone.trim()) {
@@ -70,9 +86,15 @@ export default function CheckoutModal() {
       setError('Please enter a valid 10-digit phone number.');
       return;
     }
+    if (vendor?.slotEnabled && !selectedSlotData) {
+      setError('Please select a pickup time slot.');
+      toast.error('Pickup slot is required');
+      return;
+    }
     setError('');
     setShowOTP(true);
   };
+
 
   const handlePlaceOrder = async () => {
     setLoading(true);
@@ -91,8 +113,12 @@ export default function CheckoutModal() {
         totalAmount: subtotal,
         platformFee: fee,
         finalAmount: subtotal + fee,
-        deliveryTime
+        deliveryTime: vendor?.slotEnabled ? `Slot: ${selectedSlotData.time}` : deliveryTime,
+        scheduledDate: selectedSlotData?.date || null,
+        scheduledSlot: selectedSlotData?.time || null,
+        slotDateTime: selectedSlotData?.dateTime || null
       };
+
 
       if (paymentMethod === 'wallet') {
         const clientOrderId = `${walletCustomerId}-${Date.now()}`;
@@ -218,14 +244,12 @@ export default function CheckoutModal() {
         phone={guestInfo.phone}
         isCheckoutFlow={true}
       />
-
     );
   }
 
   return (
     <Modal isOpen={isCheckoutOpen} onClose={closeCheckout} title="Order Summary" size="md">
       <div className="max-h-[80vh] flex flex-col h-full">
-        {/* Scrollable Content */}
         <div className="overflow-y-auto flex-1 pr-1">
           {error && (
             <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-xs font-medium rounded-xl border border-red-200 dark:border-red-800/50">
@@ -233,7 +257,6 @@ export default function CheckoutModal() {
             </div>
           )}
 
-          {/* Guest Info */}
           <div className="space-y-4 mb-6 p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
             <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Your Details</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -255,25 +278,42 @@ export default function CheckoutModal() {
                 className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#d4ff00] w-full transition-colors font-mono"
               />
             </div>
-            <div className="space-y-1">
-              <label className="block text-[10px] uppercase font-black text-zinc-500 tracking-widest ml-1">Delivery Time</label>
-              <select
-                value={deliveryTime}
-                onChange={(e) => setDeliveryTime(e.target.value)}
-                className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#d4ff00] w-full transition-colors text-zinc-800 dark:text-zinc-200"
-              >
-                <option value="ASAP">ASAP (Immediate)</option>
-                <option value="10">10 mins</option>
-                <option value="20">20 mins</option>
-                <option value="30">30 mins</option>
-              </select>
-            </div>
+            
+            {vendor?.slotEnabled ? (
+              <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                <FoodSlotPicker 
+                  vendorId={activeVendorId || items[0]?.vendorId} 
+                  onSelect={(data) => {
+                    setSelectedSlotData(data);
+                    setError('');
+                  }} 
+                />
+                {selectedSlotData && (
+                  <p className="mt-3 text-xs font-bold text-emerald-500 bg-emerald-500/10 px-3 py-2 rounded-xl border border-emerald-500/20 text-center animate-in fade-in zoom-in duration-300">
+                    Pickup Scheduled: {new Date(selectedSlotData.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })} at {selectedSlotData.time}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <label className="block text-[10px] uppercase font-black text-zinc-500 tracking-widest ml-1">Delivery Time</label>
+                <select
+                  value={deliveryTime}
+                  onChange={(e) => setDeliveryTime(e.target.value)}
+                  className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#d4ff00] w-full transition-colors text-zinc-800 dark:text-zinc-200"
+                >
+                  <option value="ASAP">ASAP (Immediate)</option>
+                  <option value="10">10 mins</option>
+                  <option value="20">20 mins</option>
+                  <option value="30">30 mins</option>
+                </select>
+              </div>
+            )}
             <p className="text-[10px] text-zinc-400 italic">
               {customer ? '✓ Pre-filled from your session. OTP required for every order.' : 'Enter details to receive OTP verification.'}
             </p>
           </div>
 
-          {/* Items */}
           <div className="space-y-2 mb-6 max-h-48 overflow-y-auto pr-1">
             {items.map((item) => (
               <div key={item.id} className="flex justify-between text-sm">
@@ -287,7 +327,6 @@ export default function CheckoutModal() {
             ))}
           </div>
 
-          {/* Payment Method Option */}
           <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-4 mb-6 space-y-4">
             <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Payment Method</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -334,7 +373,6 @@ export default function CheckoutModal() {
             </div>
           </div>
 
-          {/* Cost Breakdown */}
           <div className="rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 p-5 space-y-3 mb-6 border border-zinc-200 dark:border-zinc-800">
             <div className="flex justify-between text-sm">
               <span className="text-zinc-500">Item Total (Pay at Stall)</span>
@@ -374,12 +412,10 @@ export default function CheckoutModal() {
                   </div>
                 </>
               )}
-            </div>
           </div>
-
+        </div>
         </div>
 
-        {/* Sticky Footer */}
         <div className="sticky bottom-0 bg-white dark:bg-zinc-900 border-t border-zinc-100 dark:border-zinc-800 pt-4 mt-2 shrink-0">
           <div className="flex flex-col sm:flex-row gap-3">
             <Button variant="outline" fullWidth disabled={loading} onClick={() => { closeCheckout(); openCart(); }}>
@@ -392,6 +428,5 @@ export default function CheckoutModal() {
         </div>
       </div>
     </Modal>
-
   );
 }

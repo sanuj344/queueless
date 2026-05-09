@@ -6,6 +6,8 @@ import Card from '../../components/Card';
 import { formatCurrency } from '../../utils/formatCurrency';
 import VendorInstructionsModal from '../../components/VendorInstructionsModal';
 import Spinner from '../../components/Spinner';
+import toast from 'react-hot-toast';
+
 
 export default function VendorDashboard() {
   const { user, setUser } = useAuth();
@@ -30,24 +32,27 @@ export default function VendorDashboard() {
   // (covers vendors who logged in before the field was added)
   useEffect(() => {
     const syncProfile = async () => {
+      if (!localStorage.getItem('ql_token')) return;
       try {
         const res = await api.get('/vendor/profile');
         const freshVendorType = res.data.data?.vendorType || 'food';
         setVendorType(freshVendorType);
-        // Also patch the stored user so Navbar updates too
         if (setUser) {
           setUser(prev => prev ? { ...prev, vendorType: freshVendorType } : prev);
         }
       } catch (e) {
-        // Non-critical — fall back to localStorage value
+        console.error('Failed to sync profile', e);
       }
     };
     syncProfile();
   }, []);
 
+
   const fetchOrders = async () => {
+    if (!localStorage.getItem('ql_token')) return;
     try {
       const res = await api.get('/orders/vendor');
+
       const newOrders = res.data.data;
       
       // Sound notification for new orders
@@ -66,8 +71,10 @@ export default function VendorDashboard() {
   };
 
   const fetchQr = async () => {
+    if (!localStorage.getItem('ql_token')) return;
     try {
       const res = await api.get('/vendor/generate-qr');
+
       setQrData(res.data.data);
     } catch (err) {
       console.error('Failed to generate QR');
@@ -75,8 +82,10 @@ export default function VendorDashboard() {
   };
 
   const fetchBookings = async () => {
+    if (!localStorage.getItem('ql_token')) return;
     try {
       const res = await api.get('/bookings/vendor');
+
       setBookings(res.data.data || []);
     } catch (err) {
       console.error('Failed to fetch bookings');
@@ -84,8 +93,10 @@ export default function VendorDashboard() {
   };
 
   const fetchStylists = async () => {
+    if (!localStorage.getItem('ql_token')) return;
     try {
       const res = await api.get('/vendor/stylists');
+
       setStylists(res.data.data || []);
     } catch (err) {
       console.error('Failed to fetch stylists');
@@ -105,9 +116,12 @@ export default function VendorDashboard() {
     if (!seen) setShowInstructions(true);
 
     const interval = setInterval(() => {
-      fetchOrders();
-      fetchBookings();
+      if (localStorage.getItem('ql_token')) {
+        fetchOrders();
+        fetchBookings();
+      }
     }, 5000);
+
     window.addEventListener('orderPlaced', fetchOrders);
     return () => {
       clearInterval(interval);
@@ -174,11 +188,25 @@ export default function VendorDashboard() {
 
 
 
-  const sortedOrders = [...orders].sort((a, b) => (a.tokenIndex || 0) - (b.tokenIndex || 0));
-
-  const pendingOrders = sortedOrders.filter((o) => ['pending', 'placed'].includes(o.status));
+  const sortedOrders = [...orders].sort((a, b) => {
+    // Priority 1: Time comparison
+    const timeA = a.scheduledTime ? new Date(a.scheduledTime) : new Date(a.createdAt);
+    const timeB = b.scheduledTime ? new Date(b.scheduledTime) : new Date(b.createdAt);
+    
+    if (timeA.getTime() !== timeB.getTime()) {
+      return timeA - timeB;
+    }
+    
+    // Priority 2: Manual Token Index
+    return (a.tokenIndex || 0) - (b.tokenIndex || 0);
+  });
+  
+  const pendingOrders = sortedOrders.filter((o) => ['pending', 'placed', 'live'].includes(o.status));
   const activeOrders = sortedOrders.filter((o) => ['accepted', 'preparing', 'ready'].includes(o.status));
   const completedOrders = sortedOrders.filter((o) => ['completed', 'cancelled'].includes(o.status));
+  
+  const scheduledOrders = sortedOrders.filter(o => o.status === 'upcoming');
+
 
   if (loading && activeTab === 'orders') return (
     <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
@@ -210,7 +238,14 @@ export default function VendorDashboard() {
         >
           Digital QR
         </button>
+        <button 
+          onClick={() => setActiveTab('settings')}
+          className={`px-6 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'settings' ? 'bg-[#d4ff00] text-black shadow-lg shadow-[#d4ff00]/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-white'}`}
+        >
+          Settings
+        </button>
       </div>
+
 
 
       {activeTab === 'orders' ? (
@@ -291,17 +326,17 @@ export default function VendorDashboard() {
         </div>
       ) : activeTab === 'bookings' ? (
         <div className="max-w-7xl mx-auto">
-          <h2 className="text-xl font-black mb-6 text-zinc-900 dark:text-white">{isSalon ? 'Salon Bookings' : 'Slot Bookings'}</h2>
+          <h2 className="text-xl font-black mb-6 text-zinc-900 dark:text-white">{isSalon ? 'Salon Bookings' : 'Upcoming Scheduled Orders'}</h2>
 
-          {bookings.length === 0 ? (
+          {bookings.length === 0 && (isSalon || scheduledOrders.length === 0) ? (
             <div className="text-center py-20 text-zinc-400">
               <div className="text-5xl mb-4">{isSalon ? '💇' : '📅'}</div>
-              <p className="font-bold">No bookings yet.</p>
+              <p className="font-bold">No {isSalon ? 'bookings' : 'scheduled orders'} yet.</p>
             </div>
-
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {bookings.map(booking => {
+              {/* Salon Bookings */}
+              {isSalon && bookings.map(booking => {
                 const slot = new Date(booking.slotTime).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
                 return (
                   <div key={booking.id} className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-5 space-y-3">
@@ -318,50 +353,45 @@ export default function VendorDashboard() {
                       ) : (
                         <span className="text-[10px] font-black text-zinc-400">Token: Pending</span>
                       )}
-
                     </div>
                     <div>
                       <p className="font-black text-zinc-900 dark:text-white">{booking.customerName}</p>
                       <p className="text-xs text-zinc-500 font-mono">{booking.customerPhone}</p>
                     </div>
                     <p className="text-xs font-bold text-purple-600 dark:text-purple-400">📅 {slot}</p>
-                    {isSalon && (
-                      <div className="flex flex-col gap-1.5">
-                        <p className="text-[10px] font-black uppercase text-zinc-500">
-                          {booking.stylistPreference === 'anyone' ? (
-                            <>Stylist Preference: <span className="text-purple-500">Anyone</span></>
-                          ) : (
-                            <>Assigned Stylist: <span className="text-purple-500">{booking.stylist?.name || 'None'}</span></>
-                          )}
-                        </p>
-                        {booking.stylistPreference === 'anyone' && !['completed', 'cancelled'].includes(booking.status) && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-[9px] text-zinc-400 font-bold uppercase">Assign:</span>
-                            <select 
-                              className="text-[10px] bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1 outline-none focus:border-purple-500 transition-colors"
-                              value={booking.stylistId || ''}
-                              onChange={async (e) => {
-                                const val = e.target.value;
-                                if (!val) return;
-                                try {
-                                  await api.patch(`/bookings/${booking.id}`, { stylistId: val });
-                                  fetchBookings();
-                                } catch (err) {
-                                  alert(err.response?.data?.message || 'Failed to assign stylist');
-                                }
-                              }}
-                            >
-                              <option value="">Select Stylist</option>
-                              {stylists.map(s => (
-                                <option key={s.id} value={s.id}>{s.name}</option>
-                              ))}
-                            </select>
-                          </div>
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-[10px] font-black uppercase text-zinc-500">
+                        {booking.stylistPreference === 'anyone' ? (
+                          <>Stylist Preference: <span className="text-purple-500">Anyone</span></>
+                        ) : (
+                          <>Assigned Stylist: <span className="text-purple-500">{booking.stylist?.name || 'None'}</span></>
                         )}
-                      </div>
-                    )}
-
-
+                      </p>
+                      {booking.stylistPreference === 'anyone' && !['completed', 'cancelled'].includes(booking.status) && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] text-zinc-400 font-bold uppercase">Assign:</span>
+                          <select 
+                            className="text-[10px] bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1 outline-none focus:border-purple-500 transition-colors"
+                            value={booking.stylistId || ''}
+                            onChange={async (e) => {
+                              const val = e.target.value;
+                              if (!val) return;
+                              try {
+                                await api.patch(`/bookings/${booking.id}`, { stylistId: val });
+                                fetchBookings();
+                              } catch (err) {
+                                alert(err.response?.data?.message || 'Failed to assign stylist');
+                              }
+                            }}
+                          >
+                            <option value="">Select Stylist</option>
+                            {stylists.map(s => (
+                              <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
 
                     {Array.isArray(booking.services) && (
                       <div className="text-xs text-zinc-500 space-y-0.5">
@@ -386,8 +416,6 @@ export default function VendorDashboard() {
                       </div>
                     )}
 
-                    {/* Stylist is already locked and shown above */}
-
                     <div className="pt-2 flex flex-col gap-2">
                       {booking.status === 'placed' && (
                         <button onClick={() => handleAcceptWithToken('booking', booking.id)}
@@ -408,24 +436,148 @@ export default function VendorDashboard() {
                           Complete Service
                         </button>
                       )}
-                      {isSalon && booking.status === 'completed' && booking.paymentStatus === 'pending' && (
+                      {booking.paymentStatus === 'pending' && (
                         <button onClick={async () => { await api.patch(`/bookings/${booking.id}/pay`); fetchBookings(); }}
                           className="w-full py-2.5 text-xs font-black bg-[#d4ff00] text-black rounded-xl hover:scale-[1.02] active:scale-95 transition-all">
                           Mark as Paid (₹{booking.totalAmount})
                         </button>
                       )}
-                      {isSalon && booking.paymentStatus === 'paid' && booking.status === 'completed' && (
+                      {booking.paymentStatus === 'paid' && (
                         <div className="text-center py-2 text-xs font-black text-emerald-500 uppercase tracking-widest">
                           Paid ✓
                         </div>
                       )}
-
                     </div>
                   </div>
                 );
               })}
+
+              {/* Food Scheduled Orders */}
+              {!isSalon && scheduledOrders.map(order => (
+                <OrderCard key={order.id} order={order}>
+                  <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-xl">
+                    <p className="text-[10px] font-black uppercase text-purple-500 mb-1">Status: Upcoming</p>
+                    <p className="text-xs text-zinc-500">This order will automatically move to Live Orders when preparation time starts.</p>
+                  </div>
+                </OrderCard>
+              ))}
             </div>
           )}
+        </div>
+      ) : activeTab === 'settings' ? (
+        <div className="max-w-xl mx-auto">
+           <Card className="p-8 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-2xl">
+              <h2 className="text-2xl font-black text-zinc-900 dark:text-white mb-2">Store Settings</h2>
+              <p className="text-zinc-500 text-sm mb-8">Configure how your store handles orders and bookings.</p>
+              
+              <div className="space-y-6">
+                {/* Slot Booking Toggle */}
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700">
+                  <div>
+                    <h3 className="text-sm font-black text-zinc-900 dark:text-white">Enable Time Slot Booking</h3>
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Allow customers to schedule pickups</p>
+                  </div>
+                  <button 
+                    onClick={async () => {
+                      const newVal = !user.slotEnabled;
+                      await api.patch('/vendor/profile', { slotEnabled: newVal });
+                      setUser({ ...user, slotEnabled: newVal });
+                    }}
+                    className={`w-12 h-6 rounded-full transition-all relative ${user.slotEnabled ? 'bg-[#d4ff00]' : 'bg-zinc-300 dark:bg-zinc-700'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${user.slotEnabled ? 'right-1' : 'left-1'}`} />
+                  </button>
+                </div>
+
+                {user.slotEnabled && (
+                  <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Slot Duration (min)</label>
+                        <select 
+                          value={user.slotDuration || 30}
+                          onChange={async (e) => {
+                            const val = parseInt(e.target.value);
+                            await api.patch('/vendor/profile', { slotDuration: val });
+                            setUser({ ...user, slotDuration: val });
+                          }}
+                          className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#d4ff00]"
+                        >
+                          <option value={15}>15 mins</option>
+                          <option value={30}>30 mins</option>
+                          <option value={45}>45 mins</option>
+                          <option value={60}>60 mins</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Max Orders / Slot</label>
+                        <input 
+                          type="number"
+                          value={user.maxOrdersPerSlot || 5}
+                          onChange={async (e) => {
+                            const val = parseInt(e.target.value);
+                            await api.patch('/vendor/profile', { maxOrdersPerSlot: val });
+                            setUser({ ...user, maxOrdersPerSlot: val });
+                          }}
+                          className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#d4ff00]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Opening Time</label>
+                        <input 
+                          type="time"
+                          value={user.openingTime || '09:00'}
+                          onChange={async (e) => {
+                            const val = e.target.value;
+                            await api.patch('/vendor/profile', { openingTime: val });
+                            setUser({ ...user, openingTime: val });
+                          }}
+                          className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#d4ff00]"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Closing Time</label>
+                        <input 
+                          type="time"
+                          value={user.closingTime || '21:00'}
+                          onChange={async (e) => {
+                            const val = e.target.value;
+                            await api.patch('/vendor/profile', { closingTime: val });
+                            setUser({ ...user, closingTime: val });
+                          }}
+                          className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#d4ff00]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="pt-6 border-t border-zinc-100 dark:border-zinc-800">
+                  <h3 className="text-xs font-black text-zinc-900 dark:text-white mb-4 uppercase tracking-widest">Business Details</h3>
+                  <div className="space-y-4">
+                     <div className="space-y-1">
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Outlet Name</label>
+                        <input 
+                          disabled
+                          value={user.outletName || ''}
+                          className="w-full bg-zinc-100 dark:bg-zinc-800/30 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-500 cursor-not-allowed"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Phone Number</label>
+                        <input 
+                          disabled
+                          value={user.mobile || ''}
+                          className="w-full bg-zinc-100 dark:bg-zinc-800/30 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-500 cursor-not-allowed"
+                        />
+                      </div>
+                  </div>
+                </div>
+              </div>
+           </Card>
         </div>
       ) : (
         <div className="max-w-xl mx-auto">
@@ -590,8 +742,9 @@ function OrderCard({ order, children }) {
   const getStageTimeLeft = () => {
     const FIVE_MIN = 5 * 60 * 1000;
     const TEN_MIN = 10 * 60 * 1000;
-    if (order.status === 'placed' || order.status === 'pending') {
-      const diff = FIVE_MIN - (now - new Date(order.createdAt).getTime());
+    if (order.status === 'placed' || order.status === 'pending' || order.status === 'live') {
+      const startTime = order.activatedAt ? new Date(order.activatedAt).getTime() : new Date(order.createdAt).getTime();
+      const diff = FIVE_MIN - (now - startTime);
       return Math.max(0, Math.floor(diff / 1000));
     }
     if (order.status === 'accepted' && order.acceptedAt) {
@@ -607,6 +760,9 @@ function OrderCard({ order, children }) {
 
   const statusColors = {
     pending: 'bg-yellow-500/10 text-yellow-500',
+    placed: 'bg-yellow-500/10 text-yellow-500',
+    upcoming: 'bg-purple-500/10 text-purple-500',
+    live: 'bg-emerald-500/10 text-emerald-500',
     accepted: 'bg-blue-500/10 text-blue-500',
     preparing: 'bg-amber-500/10 text-amber-500',
     ready: 'bg-emerald-500/10 text-emerald-500',
@@ -620,7 +776,7 @@ function OrderCard({ order, children }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
              <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${statusColors[order.status]}`}>
-               {order.status}
+               {order.status === 'upcoming' ? '🟣 Upcoming' : order.status === 'live' ? '🟢 Live' : order.status}
              </span>
              {order.tokenNumber ? (
                <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
@@ -640,9 +796,24 @@ function OrderCard({ order, children }) {
         <div className="text-right">
           <p className="text-sm font-black text-[#d4ff00]">{formatCurrency(order.totalAmount)}</p>
           <p className="text-[10px] text-zinc-500 mt-1">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-          <p className="text-[10px] text-zinc-500 mt-1 font-bold">⏱ Delivery: {order.deliveryTime || 'ASAP'}</p>
+          {order.scheduledTime ? (
+            <div className={`mt-2 border rounded-lg p-2 text-right ${order.status === 'upcoming' ? 'bg-purple-500/10 border-purple-500/20' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
+              <p className={`text-[8px] uppercase font-black tracking-widest ${order.status === 'upcoming' ? 'text-purple-500' : 'text-emerald-500'}`}>
+                {order.status === 'upcoming' ? 'Scheduled Pickup' : 'Activated Order'}
+              </p>
+              <p className={`text-xs font-black ${order.status === 'upcoming' ? 'text-purple-500' : 'text-emerald-500'}`}>
+                {new Date(order.scheduledTime).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })} · {new Date(order.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+              {order.status === 'upcoming' && order.activationTime && (
+                <p className="text-[8px] font-bold text-zinc-400 mt-1 uppercase">Activation: {new Date(order.activationTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-[10px] text-zinc-500 mt-1 font-bold">⏱ Delivery: {order.deliveryTime || 'ASAP'}</p>
+          )}
           <p className="text-[10px] text-emerald-500 font-bold mt-1">Paid (Online): {formatCurrency(order.platformFee || 0)}</p>
           <p className="text-[10px] text-zinc-400 font-bold">Collect at Stall: {formatCurrency(order.totalAmount)}</p>
+
           {['placed', 'pending', 'accepted', 'preparing', 'ready'].includes(order.status) && (
             <p className="text-xs font-black mt-1 text-red-500 animate-pulse">
               ⏳ {Math.floor(getStageTimeLeft() / 60)}m {getStageTimeLeft() % 60}s left
