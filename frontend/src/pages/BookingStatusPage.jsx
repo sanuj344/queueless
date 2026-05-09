@@ -140,7 +140,12 @@ export default function BookingStatusPage() {
 
   const currentStep = STATUS_STEPS[booking.status] || 1;
   const slotDate = new Date(booking.slotTime);
-  const slotStr = slotDate.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+  let slotStr = slotDate.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+  if (booking.slotEndTime) {
+    const endDate = new Date(booking.slotEndTime);
+    const endStr = endDate.toLocaleString('en-IN', { timeStyle: 'short' });
+    slotStr = `${slotStr} - ${endStr}`;
+  }
 
   return (
     <div className="min-h-screen bg-white dark:bg-black flex flex-col items-center justify-center px-4 pt-24 pb-12">

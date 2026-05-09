@@ -38,24 +38,35 @@ router.get('/:id', async (req, res, next) => {
 router.get('/:id/available-stylists', async (req, res, next) => {
   try {
     const { id: vendorId } = req.params;
-    const { slotTime } = req.query;
+    const { slotTime, duration } = req.query; // duration in minutes
 
     if (!slotTime) return res.status(400).json({ success: false, message: 'slotTime required' });
+
+    const startTime = new Date(slotTime);
+    const durationMins = parseInt(duration) || 30;
+    const endTime = new Date(startTime.getTime() + durationMins * 60000);
 
     const stylists = await prisma.stylist.findMany({
       where: { vendorId }
     });
 
-    const booked = await prisma.booking.findMany({
+    // A stylist is booked if any of their bookings overlaps with [startTime, endTime)
+    const overlappingBookings = await prisma.booking.findMany({
       where: {
         vendorId,
-        slotTime: new Date(slotTime),
-        status: { not: 'cancelled' }
+        status: { not: 'cancelled' },
+        stylistId: { not: null },
+        // Overlap condition: existing booking starts before our end AND ends after our start
+        slotTime: { lt: endTime },
+        OR: [
+          { slotEndTime: null, slotTime: { gte: startTime } }, // old bookings without endTime — block exact slot
+          { slotEndTime: { gt: startTime } }                   // new bookings with endTime
+        ]
       },
       select: { stylistId: true }
     });
 
-    const bookedIds = booked.map(b => b.stylistId).filter(Boolean);
+    const bookedIds = overlappingBookings.map(b => b.stylistId).filter(Boolean);
     const available = stylists.map(s => ({
       ...s,
       isBooked: bookedIds.includes(s.id)
@@ -66,6 +77,7 @@ router.get('/:id/available-stylists', async (req, res, next) => {
     next(error);
   }
 });
+
 
 router.get('/:id/available-food-slots', async (req, res, next) => {
   try {

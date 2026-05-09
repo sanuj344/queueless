@@ -130,6 +130,7 @@ export default function SalonBookingPage({ vendor, vendorId }) {
   };
 
   const total = selectedServices.reduce((sum, s) => sum + s.price, 0);
+  const totalDuration = selectedServices.reduce((sum, s) => sum + (s.duration || 30), 0);
   const platformFee = Math.ceil(total * 0.05);
   const finalAmount = total + platformFee;
 
@@ -389,19 +390,85 @@ export default function SalonBookingPage({ vendor, vendorId }) {
                 <label className="text-sm font-bold text-zinc-600 dark:text-zinc-400 mb-3 block">Available Slots</label>
                 <div className="grid grid-cols-4 gap-2">
                   {generateSlots().map(slot => {
-                    const isBooked = bookedSlots.includes(slot);
+                    let isAvailable = true;
+                    
+                    // 1. Past time check for today
+                    if (selectedDate === todayStr) {
+                      const now = new Date();
+                      const [slotHour, slotMinute] = slot.split(':').map(Number);
+                      if (slotHour < now.getHours() || (slotHour === now.getHours() && slotMinute <= now.getMinutes())) {
+                        isAvailable = false;
+                      }
+                    }
+
+                    // 2. Duration overlap check
+                    if (isAvailable) {
+                      const [startH, startM] = slot.split(':').map(Number);
+                      const startMins = startH * 60 + startM;
+                      const endMins = startMins + totalDuration;
+                      
+                      // Cannot book if it exceeds closing time (e.g. 21:00 = 1260 mins)
+                      if (endMins > 21 * 60) {
+                        isAvailable = false;
+                      } else {
+                        // Advanced overlap check: ensure at least one stylist is free for the ENTIRE duration
+                        const stylistIds = vendor?.stylists?.map(s => s.id) || [];
+                        
+                        if (stylistIds.length === 0) {
+                          // Fallback if no specific stylists defined (e.g. single operator)
+                          const isOverlapping = bookedSlots.some(booking => {
+                            if (!booking.startTime || !booking.endTime) return false;
+                            const [bStartH, bStartM] = booking.startTime.split(':').map(Number);
+                            const [bEndH, bEndM] = booking.endTime.split(':').map(Number);
+                            const bStartMins = bStartH * 60 + bStartM;
+                            const bEndMins = bEndH * 60 + bEndM;
+                            return startMins < bEndMins && endMins > bStartMins;
+                          });
+                          if (isOverlapping) isAvailable = false;
+                        } else {
+                          // Check if ANY stylist is completely free for this duration
+                          let hasFreeStylist = false;
+                          for (const sid of stylistIds) {
+                            const stylistBookings = bookedSlots.filter(b => b.stylistId === sid);
+                            const hasOverlapForStylist = stylistBookings.some(booking => {
+                              if (!booking.startTime || !booking.endTime) return false;
+                              const [bStartH, bStartM] = booking.startTime.split(':').map(Number);
+                              const [bEndH, bEndM] = booking.endTime.split(':').map(Number);
+                              const bStartMins = bStartH * 60 + bStartM;
+                              const bEndMins = bEndH * 60 + bEndM;
+                              return startMins < bEndMins && endMins > bStartMins;
+                            });
+                            if (!hasOverlapForStylist) {
+                              hasFreeStylist = true;
+                              break;
+                            }
+                          }
+                          if (!hasFreeStylist) isAvailable = false;
+                        }
+                      }
+                    }
+
+                    // Hide past slots entirely for a cleaner UI
+                    if (selectedDate === todayStr && !isAvailable) {
+                      const now = new Date();
+                      const [slotHour, slotMinute] = slot.split(':').map(Number);
+                      if (slotHour < now.getHours() || (slotHour === now.getHours() && slotMinute <= now.getMinutes())) {
+                        return null; 
+                      }
+                    }
+
                     return (
                       <button
                         key={slot}
-                        disabled={isBooked}
+                        disabled={!isAvailable}
                         onClick={() => {
                           setSelectedSlot(slot);
                           setSelectedStylist(null);
                         }}
-                        className={`py-2.5 rounded-xl text-xs font-bold transition-all border ${selectedSlot === slot ? 'bg-[#d4ff00] text-black border-[#d4ff00]' : isBooked ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 border-zinc-200 dark:border-zinc-800 cursor-not-allowed opacity-50' : 'bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-zinc-600'}`}
+                        className={`py-2.5 rounded-xl text-xs font-bold transition-all border ${selectedSlot === slot ? 'bg-[#d4ff00] text-black border-[#d4ff00]' : !isAvailable ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 border-zinc-200 dark:border-zinc-800 cursor-not-allowed opacity-50' : 'bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-zinc-600'}`}
                       >
                         {slot}
-                        {isBooked && <div className="text-[8px] opacity-60">Taken</div>}
+                        {!isAvailable && <div className="text-[8px] opacity-60">Unavailable</div>}
                       </button>
                     );
                   })}
@@ -417,7 +484,7 @@ export default function SalonBookingPage({ vendor, vendorId }) {
                     setLoading(true);
                     try {
                       const slotISO = new Date(`${selectedDate}T${selectedSlot}:00`).toISOString();
-                      const res = await api.get(`/vendors/${vendorId}/available-stylists?slotTime=${slotISO}`);
+                      const res = await api.get(`/vendors/${vendorId}/available-stylists?slotTime=${slotISO}&duration=${totalDuration}`);
                       setStylists(res.data.data || []);
                       setStep(2);
                     } catch {

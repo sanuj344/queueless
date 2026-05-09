@@ -207,6 +207,27 @@ export default function VendorDashboard() {
   
   const scheduledOrders = sortedOrders.filter(o => o.status === 'upcoming');
 
+  const now = new Date();
+  
+  // Categorize Salon Bookings
+  const sortedBookings = [...bookings].sort((a, b) => new Date(a.slotTime) - new Date(b.slotTime));
+
+  const upcomingBookings = sortedBookings.filter(b => {
+    if (['completed', 'cancelled'].includes(b.status)) return false;
+    const slotTime = new Date(b.slotTime);
+    // Future appointments (more than 15 mins away and haven't started)
+    return slotTime.getTime() > now.getTime() + 15 * 60000 && !['in_service'].includes(b.status);
+  });
+
+  const liveBookings = sortedBookings.filter(b => {
+    if (['completed', 'cancelled'].includes(b.status)) return false;
+    const slotTime = new Date(b.slotTime);
+    // Live services (within 15 mins, or already started)
+    return slotTime.getTime() <= now.getTime() + 15 * 60000 || ['in_service'].includes(b.status);
+  });
+
+  const completedBookings = sortedBookings.filter(b => ['completed', 'cancelled'].includes(b.status));
+
 
   if (loading && activeTab === 'orders') return (
     <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
@@ -224,13 +245,13 @@ export default function VendorDashboard() {
           onClick={() => setActiveTab('orders')}
           className={`px-6 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'orders' ? 'bg-[#d4ff00] text-black shadow-lg shadow-[#d4ff00]/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-white'}`}
         >
-          Live Orders
+          {isSalon ? 'Live Services' : 'Live Orders'}
         </button>
         <button 
           onClick={() => setActiveTab('bookings')}
           className={`px-6 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'bookings' ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-white'}`}
         >
-          {isSalon ? 'Bookings' : 'Slot Booking'}
+          {isSalon ? 'Upcoming Appointments' : 'Slot Booking'}
         </button>
         <button 
           onClick={() => setActiveTab('qr')}
@@ -250,207 +271,266 @@ export default function VendorDashboard() {
 
       {activeTab === 'orders' ? (
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8">
-          {/* ─── NEW ORDERS ─── */}
-          <div className="w-full lg:w-1/3 flex flex-col gap-6">
-            <div className="p-6 rounded-3xl border border-[#d4ff00]/30 bg-[#d4ff00]/5 text-zinc-900 dark:text-white relative overflow-hidden shadow-2xl">
-              <div className="absolute top-0 right-0 p-4">
-                <span className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse inline-block"></span>
-              </div>
-              <h2 className="text-xl font-black mb-1">Incoming Requests</h2>
-              <p className="text-sm text-zinc-500">
-                You have <span className="font-black text-[#d4ff00]">{pendingOrders.length}</span> new orders!
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              {pendingOrders.map((order) => (
-                <OrderCard key={order.id} order={order}>
-                  <Button size="sm" fullWidth onClick={() => handleAcceptWithToken('order', order.id)}>
-                    Accept Order
-                  </Button>
-
-                </OrderCard>
-              ))}
-              {pendingOrders.length === 0 && <EmptyState text="No incoming orders right now." />}
-            </div>
-          </div>
-
-          {/* ─── ACTIVE KITCHEN ─── */}
-          <div className="w-full lg:w-2/3 space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Accepted & Preparing */}
-              <div className="space-y-4">
-                <h3 className="font-black text-xs uppercase tracking-widest text-amber-500 mb-4 border-b border-zinc-800 pb-2">Kitchen Workflow ({activeOrders.length})</h3>
-                {activeOrders.map((order) => (
-                  <OrderCard key={order.id} order={order}>
-                    {order.status === 'accepted' && (
-                      <Button size="sm" variant="outline" fullWidth onClick={() => updateOrderStatus(order.id, 'preparing')}>
-                        Start Preparing
-                      </Button>
-                    )}
-                    {order.status === 'preparing' && (
-                      <Button size="sm" fullWidth onClick={() => updateOrderStatus(order.id, 'ready')} className="bg-blue-600 hover:bg-blue-700 text-white border-none">
-                        Mark as Ready
-                      </Button>
-                    )}
-                    {order.status === 'ready' && (
-                      <Button size="sm" fullWidth onClick={() => updateOrderStatus(order.id, 'completed')} className="bg-emerald-600 hover:bg-emerald-700 text-white border-none">
-                        Complete Handover
-                      </Button>
-                    )}
-                  </OrderCard>
-                ))}
-                {activeOrders.length === 0 && <EmptyState text="Kitchen is currently clear." />}
-              </div>
-
-              {/* Recently Completed */}
-              <div className="space-y-4">
-                <h3 className="font-black text-xs uppercase tracking-widest text-zinc-500 mb-4 border-b border-zinc-800 pb-2">History ({completedOrders.length})</h3>
-                <div className="space-y-3">
-                  {completedOrders.slice(0, 5).map((order) => (
-                    <div key={order.id} className="p-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 rounded-2xl flex justify-between items-center text-sm opacity-60">
-                      <div>
-                        <p className="font-bold text-zinc-900 dark:text-white">{order.customerName}</p>
-                        <p className="text-[10px] text-zinc-500">
-                          ID: {order.id.slice(0, 8)} • <span className={order.status === 'cancelled' ? 'text-red-500' : 'text-emerald-500 font-bold uppercase'}>{order.status}</span>
-                        </p>
-                      </div>
-                      <span className="font-black text-[#d4ff00]">{formatCurrency(order.totalAmount)}</span>
-                    </div>
-                  ))}
-                  {completedOrders.length === 0 && <EmptyState text="No completed orders today." />}
+          {isSalon ? (
+            <>
+              {/* ─── UPCOMING APPOINTMENTS ─── */}
+              <div className="w-full lg:w-1/3 flex flex-col gap-6">
+                <div className="p-6 rounded-3xl border border-purple-500/30 bg-purple-500/5 text-zinc-900 dark:text-white relative overflow-hidden shadow-2xl">
+                  <h2 className="text-xl font-black mb-1">Upcoming Appointments</h2>
+                  <p className="text-sm text-zinc-500">
+                    You have <span className="font-black text-purple-500">{upcomingBookings.length}</span> future bookings.
+                  </p>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : activeTab === 'bookings' ? (
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-xl font-black mb-6 text-zinc-900 dark:text-white">{isSalon ? 'Salon Bookings' : 'Upcoming Scheduled Orders'}</h2>
-
-          {bookings.length === 0 && (isSalon || scheduledOrders.length === 0) ? (
-            <div className="text-center py-20 text-zinc-400">
-              <div className="text-5xl mb-4">{isSalon ? '💇' : '📅'}</div>
-              <p className="font-bold">No {isSalon ? 'bookings' : 'scheduled orders'} yet.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Salon Bookings */}
-              {isSalon && bookings.map(booking => {
-                const slot = new Date(booking.slotTime).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
-                return (
-                  <div key={booking.id} className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${
-                        booking.status === 'placed' ? 'border-amber-500/30 text-amber-500 bg-amber-500/10' :
-                        booking.status === 'accepted' ? 'border-blue-500/30 text-blue-500 bg-blue-500/10' :
-                        booking.status === 'in_service' ? 'border-purple-500/30 text-purple-500 bg-purple-500/10' :
-                        booking.status === 'completed' ? 'border-emerald-500/30 text-emerald-500 bg-emerald-500/10' :
-                        'border-red-500/30 text-red-500 bg-red-500/10'
-                      }`}>{booking.status.replace('_', ' ')}</span>
-                      {booking.tokenNumber ? (
-                        <span className="text-[10px] font-black text-zinc-500">Token: {booking.tokenNumber}</span>
-                      ) : (
-                        <span className="text-[10px] font-black text-zinc-400">Token: Pending</span>
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-black text-zinc-900 dark:text-white">{booking.customerName}</p>
-                      <p className="text-xs text-zinc-500 font-mono">{booking.customerPhone}</p>
-                    </div>
-                    <p className="text-xs font-bold text-purple-600 dark:text-purple-400">📅 {slot}</p>
-                    <div className="flex flex-col gap-1.5">
-                      <p className="text-[10px] font-black uppercase text-zinc-500">
-                        {booking.stylistPreference === 'anyone' ? (
-                          <>Stylist Preference: <span className="text-purple-500">Anyone</span></>
-                        ) : (
-                          <>Assigned Stylist: <span className="text-purple-500">{booking.stylist?.name || 'None'}</span></>
-                        )}
-                      </p>
-                      {booking.stylistPreference === 'anyone' && !['completed', 'cancelled'].includes(booking.status) && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-[9px] text-zinc-400 font-bold uppercase">Assign:</span>
-                          <select 
-                            className="text-[10px] bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1 outline-none focus:border-purple-500 transition-colors"
-                            value={booking.stylistId || ''}
-                            onChange={async (e) => {
-                              const val = e.target.value;
-                              if (!val) return;
-                              try {
-                                await api.patch(`/bookings/${booking.id}`, { stylistId: val });
-                                fetchBookings();
-                              } catch (err) {
-                                alert(err.response?.data?.message || 'Failed to assign stylist');
-                              }
-                            }}
-                          >
-                            <option value="">Select Stylist</option>
-                            {stylists.map(s => (
-                              <option key={s.id} value={s.id}>{s.name}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                    </div>
-
-                    {Array.isArray(booking.services) && (
-                      <div className="text-xs text-zinc-500 space-y-0.5">
-                        {booking.services.map((s, i) => <p key={i}>✂️ {s.name} — ₹{s.price}</p>)}
-                      </div>
-                    )}
-                    {booking.customerAction && (
-                      <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold animate-pulse ${
-                        booking.customerAction === 'coming' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600' :
-                        booking.customerAction === 'delayed' ? 'bg-amber-500/10 border-amber-500/30 text-amber-600' :
-                        'bg-blue-500/10 border-blue-500/30 text-blue-600'
-                      }`}>
-                        {booking.customerAction === 'coming' && '🚗 Customer is Coming'}
-                        {booking.customerAction === 'delayed' && '⏰ Delayed'}
-                        {booking.customerAction === 'contact' && '📞 Please Contact'}
-                      </div>
-                    )}
-
-                    {booking.hasArrived && (
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-500/20">
-                        <span>✅</span> Customer Arrived
-                      </div>
-                    )}
-
-                    <div className="pt-2 flex flex-col gap-2">
+                <div className="space-y-4">
+                  {upcomingBookings.map(booking => (
+                    <SalonServiceCard 
+                      key={booking.id} 
+                      booking={booking} 
+                      stylists={stylists}
+                      onAssignStylist={async (id, val) => {
+                        if (!val) return;
+                        try {
+                          await api.patch(`/bookings/${id}`, { stylistId: val });
+                          fetchBookings();
+                        } catch(e) {
+                          alert(e.response?.data?.message || 'Failed');
+                        }
+                      }}
+                    >
                       {booking.status === 'placed' && (
                         <button onClick={() => handleAcceptWithToken('booking', booking.id)}
                           className="w-full py-2.5 text-xs font-black bg-[#d4ff00] text-black rounded-xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-[#d4ff00]/10">
                           Accept Booking
                         </button>
                       )}
+                    </SalonServiceCard>
+                  ))}
+                  {upcomingBookings.length === 0 && <EmptyState text="No upcoming appointments." />}
+                </div>
+              </div>
 
-                      {booking.status === 'accepted' && (
-                        <button onClick={async () => { await api.patch(`/bookings/${booking.id}`, { status: 'in_service' }); fetchBookings(); }}
-                          className="w-full py-2.5 text-xs font-black bg-purple-500 text-white rounded-xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-purple-500/10">
-                          Start Service
-                        </button>
-                      )}
-                      {booking.status === 'in_service' && (
-                        <button onClick={async () => { await api.patch(`/bookings/${booking.id}`, { status: 'completed' }); fetchBookings(); }}
-                          className="w-full py-2.5 text-xs font-black bg-emerald-500 text-white rounded-xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-emerald-500/10">
-                          Complete Service
-                        </button>
-                      )}
-                      {booking.paymentStatus === 'pending' && (
-                        <button onClick={async () => { await api.patch(`/bookings/${booking.id}/pay`); fetchBookings(); }}
-                          className="w-full py-2.5 text-xs font-black bg-[#d4ff00] text-black rounded-xl hover:scale-[1.02] active:scale-95 transition-all">
-                          Mark as Paid (₹{booking.totalAmount})
-                        </button>
-                      )}
-                      {booking.paymentStatus === 'paid' && (
-                        <div className="text-center py-2 text-xs font-black text-emerald-500 uppercase tracking-widest">
-                          Paid ✓
+              {/* ─── LIVE SERVICES ─── */}
+              <div className="w-full lg:w-1/3 flex flex-col gap-6">
+                <div className="p-6 rounded-3xl border border-[#d4ff00]/30 bg-[#d4ff00]/5 text-zinc-900 dark:text-white relative overflow-hidden shadow-2xl">
+                  <div className="absolute top-0 right-0 p-4">
+                    <span className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse inline-block"></span>
+                  </div>
+                  <h2 className="text-xl font-black mb-1">Live Services</h2>
+                  <p className="text-sm text-zinc-500">
+                    <span className="font-black text-[#d4ff00]">{liveBookings.length}</span> active services.
+                  </p>
+                </div>
+                <div className="space-y-4">
+                  {liveBookings.map(booking => {
+                    const isBeforeService = now < new Date(booking.slotTime);
+                    const slotTimeString = new Date(booking.slotTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+                    return (
+                      <SalonServiceCard 
+                        key={booking.id} 
+                        booking={booking} 
+                        stylists={stylists}
+                        onAssignStylist={async (id, val) => {
+                          if (!val) return;
+                          try {
+                            await api.patch(`/bookings/${id}`, { stylistId: val });
+                            fetchBookings();
+                          } catch(e) {
+                            alert(e.response?.data?.message || 'Failed');
+                          }
+                        }}
+                      >
+                        {booking.status === 'placed' && (
+                          <button onClick={() => handleAcceptWithToken('booking', booking.id)}
+                            className="w-full py-2.5 text-xs font-black bg-[#d4ff00] text-black rounded-xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-[#d4ff00]/10">
+                            Accept Booking
+                          </button>
+                        )}
+                        {booking.status === 'accepted' && (
+                          <button 
+                            onClick={async () => { 
+                              if (isBeforeService) return;
+                              try {
+                                await api.patch(`/bookings/${booking.id}`, { status: 'in_service' }); 
+                                fetchBookings(); 
+                              } catch(err) {
+                                alert(err.response?.data?.message || 'Failed to start service');
+                              }
+                            }}
+                            disabled={isBeforeService}
+                            className={`w-full py-2.5 text-xs font-black rounded-xl transition-all shadow-lg ${
+                              isBeforeService 
+                                ? 'bg-zinc-200 dark:bg-zinc-800/80 text-zinc-500 cursor-not-allowed shadow-none border border-zinc-300 dark:border-zinc-700' 
+                                : 'bg-purple-500 text-white hover:scale-[1.02] active:scale-95 shadow-purple-500/10'
+                            }`}
+                          >
+                            {isBeforeService ? `Available at ${slotTimeString}` : 'Start Service'}
+                          </button>
+                        )}
+                        {booking.status === 'in_service' && (
+                          <button onClick={async () => { await api.patch(`/bookings/${booking.id}`, { status: 'completed' }); fetchBookings(); }}
+                            className="w-full py-2.5 text-xs font-black bg-emerald-500 text-white rounded-xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-emerald-500/10">
+                            Complete Service
+                          </button>
+                        )}
+                        {booking.paymentStatus === 'pending' && (
+                          <button onClick={async () => { await api.patch(`/bookings/${booking.id}/pay`); fetchBookings(); }}
+                            className="w-full py-2.5 text-xs font-black bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-xl hover:scale-[1.02] active:scale-95 transition-all mt-2">
+                            Collect Payment (₹{booking.totalAmount})
+                          </button>
+                        )}
+                      </SalonServiceCard>
+                    );
+                  })}
+                  {liveBookings.length === 0 && <EmptyState text="No live services right now." />}
+                </div>
+              </div>
+
+              {/* ─── HISTORY ─── */}
+              <div className="w-full lg:w-1/3 flex flex-col gap-6">
+                <h3 className="font-black text-xs uppercase tracking-widest text-zinc-500 mb-2 border-b border-zinc-800 pb-2">History ({completedBookings.length})</h3>
+                <div className="space-y-4">
+                  {completedBookings.slice(0, 10).map(booking => {
+                    const slotDate = new Date(booking.slotTime);
+                    let slotStr = slotDate.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+                    if (booking.slotEndTime) {
+                      const endDate = new Date(booking.slotEndTime);
+                      slotStr = `${slotStr} - ${endDate.toLocaleString('en-IN', { timeStyle: 'short' })}`;
+                    }
+                    return (
+                      <div key={booking.id} className="p-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 rounded-2xl flex justify-between items-center text-sm opacity-70 hover:opacity-100 transition-opacity">
+                        <div>
+                          <p className="font-bold text-zinc-900 dark:text-white">{booking.customerName}</p>
+                          <p className="text-[10px] text-zinc-500 mt-0.5">
+                            ID: {booking.id.slice(0, 8)} • <span className={booking.status === 'cancelled' ? 'text-red-500 font-bold uppercase' : 'text-emerald-500 font-bold uppercase'}>{booking.status}</span>
+                          </p>
+                          <p className="text-[10px] text-zinc-400 mt-0.5">📅 {slotStr}</p>
                         </div>
-                      )}
+                        <div className="text-right shrink-0 ml-2">
+                          <span className="font-black text-purple-500 block">{formatCurrency(booking.totalAmount)}</span>
+                          <span className="text-[9px] text-zinc-400 font-bold uppercase mt-1 block">
+                            {booking.stylist?.name || 'No Stylist'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {completedBookings.length === 0 && <EmptyState text="No completed services today." />}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* ─── NEW ORDERS ─── */}
+              <div className="w-full lg:w-1/3 flex flex-col gap-6">
+                <div className="p-6 rounded-3xl border border-[#d4ff00]/30 bg-[#d4ff00]/5 text-zinc-900 dark:text-white relative overflow-hidden shadow-2xl">
+                  <div className="absolute top-0 right-0 p-4">
+                    <span className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse inline-block"></span>
+                  </div>
+                  <h2 className="text-xl font-black mb-1">Incoming Requests</h2>
+                  <p className="text-sm text-zinc-500">
+                    You have <span className="font-black text-[#d4ff00]">{pendingOrders.length}</span> new orders!
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  {pendingOrders.map((order) => (
+                    <OrderCard key={order.id} order={order}>
+                      <Button size="sm" fullWidth onClick={() => handleAcceptWithToken('order', order.id)}>
+                        Accept Order
+                      </Button>
+                    </OrderCard>
+                  ))}
+                  {pendingOrders.length === 0 && <EmptyState text="No incoming orders right now." />}
+                </div>
+              </div>
+
+              {/* ─── ACTIVE KITCHEN ─── */}
+              <div className="w-full lg:w-2/3 space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Accepted & Preparing */}
+                  <div className="space-y-4">
+                    <h3 className="font-black text-xs uppercase tracking-widest text-amber-500 mb-4 border-b border-zinc-800 pb-2">Kitchen Workflow ({activeOrders.length})</h3>
+                    {activeOrders.map((order) => (
+                      <OrderCard key={order.id} order={order}>
+                        {order.status === 'accepted' && (
+                          <Button size="sm" variant="outline" fullWidth onClick={() => updateOrderStatus(order.id, 'preparing')}>
+                            Start Preparing
+                          </Button>
+                        )}
+                        {order.status === 'preparing' && (
+                          <Button size="sm" fullWidth onClick={() => updateOrderStatus(order.id, 'ready')} className="bg-blue-600 hover:bg-blue-700 text-white border-none">
+                            Mark as Ready
+                          </Button>
+                        )}
+                        {order.status === 'ready' && (
+                          <Button size="sm" fullWidth onClick={() => updateOrderStatus(order.id, 'completed')} className="bg-emerald-600 hover:bg-emerald-700 text-white border-none">
+                            Complete Handover
+                          </Button>
+                        )}
+                      </OrderCard>
+                    ))}
+                    {activeOrders.length === 0 && <EmptyState text="Kitchen is currently clear." />}
+                  </div>
+
+                  {/* Recently Completed */}
+                  <div className="space-y-4">
+                    <h3 className="font-black text-xs uppercase tracking-widest text-zinc-500 mb-4 border-b border-zinc-800 pb-2">History ({completedOrders.length})</h3>
+                    <div className="space-y-3">
+                      {completedOrders.slice(0, 5).map((order) => (
+                        <div key={order.id} className="p-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 rounded-2xl flex justify-between items-center text-sm opacity-60">
+                          <div>
+                            <p className="font-bold text-zinc-900 dark:text-white">{order.customerName}</p>
+                            <p className="text-[10px] text-zinc-500">
+                              ID: {order.id.slice(0, 8)} • <span className={order.status === 'cancelled' ? 'text-red-500' : 'text-emerald-500 font-bold uppercase'}>{order.status}</span>
+                            </p>
+                          </div>
+                          <span className="font-black text-[#d4ff00]">{formatCurrency(order.totalAmount)}</span>
+                        </div>
+                      ))}
+                      {completedOrders.length === 0 && <EmptyState text="No completed orders today." />}
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      ) : activeTab === 'bookings' ? (
+        <div className="max-w-7xl mx-auto">
+          <h2 className="text-xl font-black mb-6 text-zinc-900 dark:text-white">{isSalon ? 'Upcoming Appointments' : 'Upcoming Scheduled Orders'}</h2>
+
+          {(isSalon ? upcomingBookings.length === 0 : scheduledOrders.length === 0) ? (
+            <div className="text-center py-20 text-zinc-400">
+              <div className="text-5xl mb-4">{isSalon ? '💇' : '📅'}</div>
+              <p className="font-bold">No {isSalon ? 'upcoming appointments' : 'scheduled orders'} yet.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Salon Bookings */}
+              {isSalon && upcomingBookings.map(booking => (
+                <SalonServiceCard 
+                  key={booking.id} 
+                  booking={booking} 
+                  stylists={stylists}
+                  onAssignStylist={async (id, val) => {
+                    if (!val) return;
+                    try {
+                      await api.patch(`/bookings/${id}`, { stylistId: val });
+                      fetchBookings();
+                    } catch(e) {
+                      alert(e.response?.data?.message || 'Failed');
+                    }
+                  }}
+                >
+                  {booking.status === 'placed' && (
+                    <button onClick={() => handleAcceptWithToken('booking', booking.id)}
+                      className="w-full py-2.5 text-xs font-black bg-[#d4ff00] text-black rounded-xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-[#d4ff00]/10">
+                      Accept Booking
+                    </button>
+                  )}
+                </SalonServiceCard>
+              ))}
 
               {/* Food Scheduled Orders */}
               {!isSalon && scheduledOrders.map(order => (
@@ -853,6 +933,114 @@ function EmptyState({ text }) {
     <div className="p-8 border-2 border-dashed border-zinc-100 dark:border-zinc-800 rounded-3xl flex items-center justify-center text-center">
       <p className="text-sm text-zinc-500">{text}</p>
     </div>
+  );
+}
+
+function SalonServiceCard({ booking, children, stylists, onAssignStylist }) {
+  const statusColors = {
+    placed: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+    accepted: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+    in_service: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
+    completed: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+    cancelled: 'bg-red-500/10 text-red-500 border-red-500/20'
+  };
+
+  const statusLabels = {
+    placed: 'Booked',
+    accepted: 'Accepted',
+    in_service: 'In Progress',
+    completed: 'Completed',
+    cancelled: 'Cancelled'
+  };
+
+  const slotDate = new Date(booking.slotTime);
+  let slotStr = slotDate.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+  if (booking.slotEndTime) {
+    const endDate = new Date(booking.slotEndTime);
+    slotStr = `${slotStr} - ${endDate.toLocaleString('en-IN', { timeStyle: 'short' })}`;
+  }
+
+  return (
+    <Card className="p-5 bg-white dark:bg-zinc-900/40 border-zinc-200 dark:border-zinc-800 flex flex-col gap-4 hover:border-purple-500/40 transition-all shadow-xl">
+      <div className="flex justify-between items-start">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+             <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${statusColors[booking.status]}`}>
+               {statusLabels[booking.status]}
+             </span>
+             {booking.tokenNumber ? (
+               <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-purple-500/10 text-purple-500 border border-purple-500/20">
+                 Token: {booking.tokenNumber}
+               </span>
+             ) : (
+               <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-zinc-500/10 text-zinc-500 border border-zinc-500/20">
+                 Token: Pending
+               </span>
+             )}
+          </div>
+          <h4 className="font-black text-zinc-900 dark:text-white truncate">{booking.customerName}</h4>
+          <p className="text-xs text-zinc-500">{booking.customerPhone}</p>
+          <p className="text-xs font-bold text-purple-600 dark:text-purple-400 mt-1">📅 {slotStr}</p>
+        </div>
+        <div className="text-right shrink-0 ml-2">
+          <p className="text-sm font-black text-purple-500">{formatCurrency(booking.totalAmount)}</p>
+          <p className="text-[10px] text-zinc-500 mt-1">ID: {booking.id.slice(0, 8)}</p>
+        </div>
+      </div>
+      
+      <div className="flex flex-col gap-1.5 border-t border-zinc-100 dark:border-zinc-800 pt-3">
+        <p className="text-[10px] font-black uppercase text-zinc-500">
+          {booking.stylistPreference === 'anyone' ? (
+            <>Stylist Preference: <span className="text-purple-500">Anyone</span></>
+          ) : (
+            <>Assigned Stylist: <span className="text-purple-500">{booking.stylist?.name || 'None'}</span></>
+          )}
+        </p>
+        {booking.stylistPreference === 'anyone' && !['completed', 'cancelled'].includes(booking.status) && (
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-[9px] text-zinc-400 font-bold uppercase">Assign:</span>
+            <select 
+              className="flex-1 text-[10px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1 outline-none focus:border-purple-500 transition-colors"
+              value={booking.stylistId || ''}
+              onChange={(e) => onAssignStylist(booking.id, e.target.value)}
+            >
+              <option value="">Select Stylist</option>
+              {stylists.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {Array.isArray(booking.services) && (
+        <div className="text-xs text-zinc-500 space-y-0.5">
+          {booking.services.map((s, i) => <p key={i}>✂️ {s.name} — {s.duration}m</p>)}
+        </div>
+      )}
+
+      {booking.customerAction && (
+        <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold animate-pulse ${
+          booking.customerAction === 'coming' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600' :
+          booking.customerAction === 'delayed' ? 'bg-amber-500/10 border-amber-500/30 text-amber-600' :
+          'bg-blue-500/10 border-blue-500/30 text-blue-600'
+        }`}>
+          {booking.customerAction === 'coming' && '🚗 Customer is Coming'}
+          {booking.customerAction === 'delayed' && '⏰ Delayed'}
+          {booking.customerAction === 'contact' && '📞 Please Contact'}
+        </div>
+      )}
+
+      {booking.hasArrived && (
+        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-500/20">
+          <span>✅</span> Customer Arrived
+        </div>
+      )}
+
+      <div className="pt-2 flex flex-col gap-2">
+        {children}
+      </div>
+    </Card>
   );
 }
 

@@ -4,7 +4,7 @@ const { protect, restrictTo } = require('../middlewares/auth.middleware');
 
 const router = express.Router();
 
-// GET /bookings/vendor/:vendorId/booked-slots — fetch taken slots for a date
+// GET /bookings/vendor/:vendorId/booked-slots — fetch taken slot ranges for a date
 router.get('/vendor/:vendorId/booked-slots', async (req, res, next) => {
   try {
     const { date } = req.query;
@@ -23,19 +23,26 @@ router.get('/vendor/:vendorId/booked-slots', async (req, res, next) => {
         },
         status: { not: 'cancelled' }
       },
-      select: { slotTime: true }
+      select: { slotTime: true, slotEndTime: true, stylistId: true }
     });
 
-    const bookedSlots = bookings.map(b => {
-      const d = new Date(b.slotTime);
-      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    // Return full ranges so frontend can compute which intermediate slots are blocked
+    const bookedRanges = bookings.map(b => {
+      const start = new Date(b.slotTime);
+      const end = b.slotEndTime ? new Date(b.slotEndTime) : new Date(b.slotTime.getTime() + 30 * 60000);
+      return {
+        startTime: `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`,
+        endTime: `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`,
+        stylistId: b.stylistId || null
+      };
     });
 
-    res.json({ success: true, data: bookedSlots });
+    res.json({ success: true, data: bookedRanges });
   } catch (error) {
     next(error);
   }
 });
+
 
 // GET /bookings/vendor — vendor's bookings (protected)
 router.get('/vendor', protect, restrictTo('vendor'), async (req, res, next) => {
@@ -149,10 +156,10 @@ router.patch('/:id', protect, restrictTo('vendor'), async (req, res, next) => {
     const { status } = req.body;
     const updateData = {};
     
-    if (req.body.stylistId) {
+    const booking = await prisma.booking.findUnique({ where: { id: req.params.id } });
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
 
-      const booking = await prisma.booking.findUnique({ where: { id: req.params.id } });
-      if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (req.body.stylistId) {
       
       if (booking.stylistPreference === 'specific' && booking.stylistId && booking.stylistId !== req.body.stylistId) {
         return res.status(400).json({ success: false, message: 'Stylist cannot be changed for specific requests' });
@@ -215,17 +222,21 @@ router.patch('/:id', protect, restrictTo('vendor'), async (req, res, next) => {
 
       updateData.tokenNumber = tokenNumber;
     } else if (status === 'in_service') {
-      updateData.serviceStartTime = new Date();
+      const now = new Date();
+      if (now < new Date(booking.slotTime)) {
+        return res.status(400).json({ success: false, message: 'Cannot start service before appointment time.' });
+      }
+      updateData.serviceStartTime = now;
     } else if (status === 'completed') {
       updateData.serviceEndTime = new Date();
     }
 
 
-    const booking = await prisma.booking.update({
+    const updatedBooking = await prisma.booking.update({
       where: { id: req.params.id },
       data: updateData
     });
-    res.json({ success: true, data: booking });
+    res.json({ success: true, data: updatedBooking });
   } catch (error) {
     next(error);
   }

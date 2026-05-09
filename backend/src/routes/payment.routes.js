@@ -103,19 +103,45 @@ router.post('/verify', async (req, res, next) => {
     if (orderData.type === 'salon') {
       const { services, slotTime, stylistId, stylistPreference } = orderData;
       const slotDateTime = new Date(slotTime);
-      
+
+      // Calculate total service duration
+      const totalDuration = (services || []).reduce((sum, s) => sum + (s.duration || 30), 0);
+      const slotEndTime = new Date(slotDateTime.getTime() + totalDuration * 60000);
+
+      // Validate: no overlapping bookings in the required time range for this vendor slot
+      const overlapCount = await prisma.booking.count({
+        where: {
+          vendorId,
+          status: { not: 'cancelled' },
+          slotTime: { lt: slotEndTime },
+          OR: [
+            { slotEndTime: null, slotTime: { gte: slotDateTime } },
+            { slotEndTime: { gt: slotDateTime } }
+          ]
+        }
+      });
+
+      if (overlapCount > 0) {
+        return res.status(409).json({ success: false, message: 'One or more required time slots are already taken. Please choose a different time.' });
+      }
+
+      // Stylist-specific overlap check
       if (stylistPreference === 'specific' && stylistId) {
-        const existingSlot = await prisma.booking.count({
+        const stylistOverlap = await prisma.booking.count({
           where: {
             vendorId,
-            slotTime: slotDateTime,
             stylistId,
-            status: { not: 'cancelled' }
+            status: { not: 'cancelled' },
+            slotTime: { lt: slotEndTime },
+            OR: [
+              { slotEndTime: null, slotTime: { gte: slotDateTime } },
+              { slotEndTime: { gt: slotDateTime } }
+            ]
           }
         });
-        
-        if (existingSlot >= 1) {
-          return res.status(409).json({ success: false, message: 'This stylist is already booked for this slot. Please choose another time.' });
+
+        if (stylistOverlap >= 1) {
+          return res.status(409).json({ success: false, message: 'This stylist is not available for the full duration. Please choose another stylist or time.' });
         }
       }
 
@@ -130,6 +156,8 @@ router.post('/verify', async (req, res, next) => {
           platformFee: parseFloat(platformFee || 0),
           finalAmount: parseFloat(finalAmount || totalAmount),
           slotTime: slotDateTime,
+          slotEndTime,
+          totalDuration,
           status: 'placed',
           paymentMethod: 'razorpay',
           paymentStatus: 'paid',
@@ -348,14 +376,42 @@ router.post('/wallet-pay', async (req, res, next) => {
     });
 
     if (orderData.type === 'salon') {
-      const { slotTime, stylistId, stylistPreference } = orderData;
+      const { services, slotTime, stylistId, stylistPreference } = orderData;
       const slotDateTime = new Date(slotTime);
+      const totalDuration = (services || []).reduce((sum, s) => sum + (s.duration || 30), 0);
+      const slotEndTime = new Date(slotDateTime.getTime() + totalDuration * 60000);
+
+      // Overlap check for entire duration range
+      const overlapCount = await prisma.booking.count({
+        where: {
+          vendorId,
+          status: { not: 'cancelled' },
+          slotTime: { lt: slotEndTime },
+          OR: [
+            { slotEndTime: null, slotTime: { gte: slotDateTime } },
+            { slotEndTime: { gt: slotDateTime } }
+          ]
+        }
+      });
+      if (overlapCount > 0) {
+        return res.status(409).json({ success: false, message: 'One or more required time slots are already taken. Please choose a different time.' });
+      }
+
       if (stylistPreference === 'specific' && stylistId) {
-        const existingSlot = await prisma.booking.count({
-          where: { vendorId, slotTime: slotDateTime, stylistId, status: { not: 'cancelled' } }
+        const stylistOverlap = await prisma.booking.count({
+          where: {
+            vendorId,
+            stylistId,
+            status: { not: 'cancelled' },
+            slotTime: { lt: slotEndTime },
+            OR: [
+              { slotEndTime: null, slotTime: { gte: slotDateTime } },
+              { slotEndTime: { gt: slotDateTime } }
+            ]
+          }
         });
-        if (existingSlot >= 1) {
-          return res.status(409).json({ success: false, message: 'This stylist is already booked for this slot.' });
+        if (stylistOverlap >= 1) {
+          return res.status(409).json({ success: false, message: 'This stylist is not available for the full duration. Please choose another stylist or time.' });
         }
       }
     } else {
@@ -395,10 +451,8 @@ router.post('/wallet-pay', async (req, res, next) => {
     if (orderData.type === 'salon') {
       const { services, slotTime, stylistId, stylistPreference } = orderData;
       const slotDateTime = new Date(slotTime);
-
-      if (stylistPreference === 'specific' && stylistId) {
-        // Validation already done upfront
-      }
+      const totalDuration = (services || []).reduce((sum, s) => sum + (s.duration || 30), 0);
+      const slotEndTime = new Date(slotDateTime.getTime() + totalDuration * 60000);
 
       const booking = await prisma.booking.create({
         data: {
@@ -406,7 +460,8 @@ router.post('/wallet-pay', async (req, res, next) => {
           services, totalAmount: parseFloat(totalAmount),
           platformFee: parseFloat(platformFee || 0),
           finalAmount: parseFloat(finalAmount || totalAmount),
-          slotTime: slotDateTime, status: 'placed',
+          slotTime: slotDateTime, slotEndTime, totalDuration,
+          status: 'placed',
           paymentMethod: 'wallet', paymentStatus: 'paid',
           tokenNumber: null, tokenIndex: null,
           stylistId: stylistPreference === 'anyone' ? null : stylistId,
