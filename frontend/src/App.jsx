@@ -32,6 +32,7 @@ import CustomerHub from './pages/CustomerHub';
 import AboutPage from './pages/AboutPage';
 import BookingStatusPage from './pages/BookingStatusPage';
 import VendorServicesPage from './pages/vendor/VendorServicesPage';
+import VendorProfilePage from './pages/vendor/VendorProfilePage';
 import CustomerProtectedRoute from './components/CustomerProtectedRoute';
 import TermsPage from './pages/legal/TermsPage';
 import PrivacyPage from './pages/legal/PrivacyPage';
@@ -221,6 +222,14 @@ export default function App() {
                     element={
                       <ProtectedRoute roleRequired="vendor">
                         <VendorServicesPage />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/vendor/profile" 
+                    element={
+                      <ProtectedRoute roleRequired="vendor">
+                        <VendorProfilePage />
                       </ProtectedRoute>
                     } 
                   />

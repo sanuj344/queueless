@@ -179,12 +179,26 @@ export default function Navbar() {
                   </button>
                 </div>
               ) : isAuthenticated ? (
-                <button
-                  onClick={logout}
-                  className="hidden sm:inline-flex items-center px-4 py-2 bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-sm font-bold rounded-xl hover:bg-red-200 dark:hover:bg-red-500/20 transition-colors border border-red-200 dark:border-red-500/20"
-                >
-                  Log Out
-                </button>
+                <div className="hidden sm:flex items-center gap-3">
+                  <Link 
+                    to="/vendor/profile"
+                    className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white border border-zinc-200 dark:border-zinc-700 font-black flex items-center justify-center cursor-pointer hover:border-[#d4ff00] hover:text-[#d4ff00] transition-all select-none overflow-hidden"
+                    title="Vendor Profile"
+                  >
+                    {user?.profileImage ? (
+                      <img src={user.profileImage} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                      user?.name?.charAt(0).toUpperCase() || 'V'
+                    )}
+                  </Link>
+
+                  <button
+                    onClick={logout}
+                    className="inline-flex items-center px-4 py-2 bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-sm font-bold rounded-xl hover:bg-red-200 dark:hover:bg-red-500/20 transition-colors border border-red-200 dark:border-red-500/20"
+                  >
+                    Log Out
+                  </button>
+                </div>
               ) : (
                 <div className="flex items-center gap-2">
                   <button
@@ -259,6 +273,7 @@ export default function Navbar() {
                     )}
                     <Link to="/wallet" className={mobileNavLinkClass(location.pathname === '/wallet')}>Wallet</Link>
                     <Link to="/refer" className={mobileNavLinkClass(location.pathname === '/refer')}>Referral</Link>
+                    <Link to="/vendor/profile" className={mobileNavLinkClass(location.pathname === '/vendor/profile')}>Profile & Settings</Link>
                     <button
                       onClick={logout}
                       className="text-left text-base font-bold text-red-500 p-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 mt-2 border-t border-zinc-100 dark:border-zinc-800"

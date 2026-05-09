@@ -51,7 +51,12 @@ router.get('/profile', protect, restrictTo('vendor'), async (req, res, next) => 
 
 router.patch('/profile', protect, restrictTo('vendor'), async (req, res, next) => {
   try {
-    const { slotDuration, maxOrdersPerSlot, openingTime, closingTime, slotEnabled } = req.body;
+    const { 
+      slotDuration, maxOrdersPerSlot, openingTime, closingTime, slotEnabled,
+      outletName, mobile, email, address, city, state, pincode, gstNumber, storeDescription, averagePrepTime, profileImage,
+      accountHolderName, bankName, accountNumber, ifscCode, upiId, branchName
+    } = req.body;
+    
     const updated = await prisma.user.update({
       where: { id: req.user.id },
       data: {
@@ -59,7 +64,24 @@ router.patch('/profile', protect, restrictTo('vendor'), async (req, res, next) =
         maxOrdersPerSlot: maxOrdersPerSlot !== undefined ? parseInt(maxOrdersPerSlot) : undefined,
         openingTime,
         closingTime,
-        slotEnabled
+        slotEnabled,
+        outletName, 
+        mobile, 
+        email, 
+        address, 
+        city, 
+        state, 
+        pincode, 
+        gstNumber, 
+        storeDescription, 
+        averagePrepTime: averagePrepTime !== undefined ? parseInt(averagePrepTime) : undefined, 
+        profileImage,
+        accountHolderName, 
+        bankName, 
+        accountNumber, 
+        ifscCode, 
+        upiId, 
+        branchName
       }
     });
     res.json({ success: true, data: updated });

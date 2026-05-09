@@ -23,6 +23,14 @@ model User {
   accountNumber     String?
   ifscCode          String?
   accountHolderName String?
+  bankName          String?
+  upiId             String?
+  branchName        String?
+  city              String?
+  state             String?
+  pincode           String?
+  storeDescription  String?
+  profileImage      String?
   isApproved        Boolean  @default(false)
   hasGst            Boolean  @default(false)
   gstNumber         String?
