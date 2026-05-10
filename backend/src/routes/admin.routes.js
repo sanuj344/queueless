@@ -21,8 +21,15 @@ router.get('/dashboard', async (req, res, next) => {
       where: { role: 'vendor', isApproved: false }
     });
 
-    // orders
+    // orders (food)
     const orders = await prisma.order.findMany({
+      include: {
+        vendor: true
+      }
+    });
+
+    // bookings (salon)
+    const bookings = await prisma.booking.findMany({
       include: {
         vendor: true
       }
@@ -32,45 +39,64 @@ router.get('/dashboard', async (req, res, next) => {
     let commission = 0;
     const vendorMap = {};
 
-    orders.forEach(order => {
-      if (!order.vendor) return;
-      const vendorId = order.vendorId;
+    const processTransaction = (transaction, isBooking = false) => {
+      if (!transaction.vendor) return;
+      const vendorId = transaction.vendorId;
 
       if (!vendorMap[vendorId]) {
         vendorMap[vendorId] = {
-          name: order.vendor.outletName || order.vendor.name,
+          name: transaction.vendor.outletName || transaction.vendor.name,
+          vendorType: transaction.vendor.vendorType === 'salon' || isBooking ? 'salon' : 'food',
           totalOrders: 0,
           cancelled: 0,
           revenue: 0,
-          joinedAt: order.vendor.createdAt,
-          status: order.vendor.isApproved ? 'verified' : 'unverified'
+          joinedAt: transaction.vendor.createdAt,
+          status: transaction.vendor.isApproved ? 'verified' : 'unverified'
         };
       }
 
       vendorMap[vendorId].totalOrders += 1;
-      vendorMap[vendorId].revenue += order.totalAmount;
+      vendorMap[vendorId].revenue += transaction.totalAmount;
 
-      if (order.status === 'cancelled') {
+      if (transaction.status === 'cancelled') {
         vendorMap[vendorId].cancelled += 1;
       }
 
-      commission += order.platformFee || (order.totalAmount * 0.1);
-    });
+      commission += transaction.platformFee || (transaction.totalAmount * 0.1);
+    };
+
+    orders.forEach(o => processTransaction(o));
+    bookings.forEach(b => processTransaction(b, true));
 
     const allVendors = await prisma.user.findMany({
-      where: { role: 'vendor' }
+      where: { role: 'vendor' },
+      include: {
+        stylists: true
+      }
     });
 
     allVendors.forEach(v => {
       if (!vendorMap[v.id]) {
         vendorMap[v.id] = {
           name: v.outletName || v.name,
+          vendorType: (v.vendorType === 'salon' || v.stylists?.length > 0) ? 'salon' : 'food',
           totalOrders: 0,
           cancelled: 0,
           revenue: 0,
           joinedAt: v.createdAt,
-          status: v.isApproved ? 'verified' : 'unverified'
+          status: v.isApproved ? 'verified' : 'unverified',
+          stylistsCount: v.stylists?.length || 0,
+          prepTime: v.averagePrepTime || 0,
+          slotDuration: v.slotDuration || 30
         };
+      } else {
+        // Ensure vendorType is updated if it was previously set to food but they have stylists
+        if (vendorMap[v.id].vendorType === 'food' && (v.vendorType === 'salon' || v.stylists?.length > 0)) {
+          vendorMap[v.id].vendorType = 'salon';
+        }
+        vendorMap[v.id].stylistsCount = v.stylists?.length || 0;
+        vendorMap[v.id].prepTime = v.averagePrepTime || 0;
+        vendorMap[v.id].slotDuration = v.slotDuration || 30;
       }
     });
 
@@ -109,13 +135,36 @@ router.get('/vendors', async (req, res, next) => {
         isApproved: true,
         hasGst: true,
         gstNumber: true,
-        createdAt: true
+        createdAt: true,
+        vendorType: true,
+        averagePrepTime: true,
+        slotDuration: true,
+        accountHolderName: true,
+        bankName: true,
+        accountNumber: true,
+        ifscCode: true,
+        upiId: true,
+        branchName: true,
+        city: true,
+        state: true,
+        pincode: true,
+        storeDescription: true,
+        stylists: {
+          select: { id: true }
+        }
       },
       orderBy: { createdAt: 'desc' }
     });
 
     console.log(`[Admin API] Found ${vendors.length} vendors`);
-    res.status(200).json({ success: true, data: vendors });
+    
+    // Robust vendorType detection
+    const hydratedVendors = vendors.map(v => ({
+      ...v,
+      vendorType: (v.vendorType === 'salon' || (v.stylists && v.stylists.length > 0)) ? 'salon' : 'food'
+    }));
+
+    res.status(200).json({ success: true, data: hydratedVendors });
   } catch (error) {
     next(error);
   }
@@ -258,12 +307,13 @@ router.get('/referrals', async (req, res, next) => {
 router.get('/commission', async (req, res, next) => {
   try {
     const orders = await prisma.order.findMany({
-      where: {
-        status: "completed"
-      },
-      include: {
-        vendor: true
-      }
+      where: { status: "completed" },
+      include: { vendor: true }
+    });
+
+    const bookings = await prisma.booking.findMany({
+      where: { status: "completed" },
+      include: { vendor: true }
     });
 
     let totalCommission = 0;
@@ -276,13 +326,12 @@ router.get('/commission', async (req, res, next) => {
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
 
-    orders.forEach(order => {
-      // commission (platformFee)
-      const commission = order.platformFee || 0;
+    const processItem = (item, isBooking = false) => {
+      const commission = item.platformFee || 0;
 
       totalCommission += commission;
 
-      const orderDate = new Date(order.createdAt);
+      const orderDate = new Date(item.createdAt);
 
       if (orderDate.toDateString() === today.toDateString()) {
         todayCommission += commission;
@@ -292,20 +341,23 @@ router.get('/commission', async (req, res, next) => {
         monthlyCommission += commission;
       }
 
-      // vendor-wise aggregation
-      if (!vendorMap[order.vendorId]) {
-        vendorMap[order.vendorId] = {
-          vendorName: order.vendor?.outletName || order.vendor?.name || "Vendor",
+      if (!vendorMap[item.vendorId]) {
+        vendorMap[item.vendorId] = {
+          vendorName: item.vendor?.outletName || item.vendor?.name || "Vendor",
+          vendorType: item.vendor?.vendorType === 'salon' || isBooking ? "salon" : "food",
           totalSales: 0,
           commission: 0,
           orders: 0
         };
       }
 
-      vendorMap[order.vendorId].totalSales += order.totalAmount;
-      vendorMap[order.vendorId].commission += commission;
-      vendorMap[order.vendorId].orders += 1;
-    });
+      vendorMap[item.vendorId].totalSales += item.totalAmount;
+      vendorMap[item.vendorId].commission += commission;
+      vendorMap[item.vendorId].orders += 1;
+    };
+
+    orders.forEach(o => processItem(o, false));
+    bookings.forEach(b => processItem(b, true));
 
     const vendorList = Object.values(vendorMap);
 
@@ -328,6 +380,7 @@ router.get('/commission', async (req, res, next) => {
 router.get('/analytics', async (req, res, next) => {
   try {
     const orders = await prisma.order.findMany();
+    const bookings = await prisma.booking.findMany();
 
     let totalRevenue = 0;
     let completed = 0;
@@ -338,23 +391,26 @@ router.get('/analytics', async (req, res, next) => {
     const revenueByDayMap = {};
     days.forEach(d => revenueByDayMap[d] = 0);
 
-    orders.forEach(order => {
-      const amount = order.totalAmount || 0;
+    const processItem = (item) => {
+      const amount = item.totalAmount || 0;
       totalRevenue += amount;
 
-      const date = new Date(order.createdAt);
+      const date = new Date(item.createdAt);
       const dayName = days[date.getDay()];
       revenueByDayMap[dayName] += amount;
 
-      if (order.status === "completed") completed++;
-      else if (order.status === "cancelled") cancelled++;
+      if (item.status === "completed") completed++;
+      else if (item.status === "cancelled") cancelled++;
       else pending++; // everything else is pending/placed
-    });
+    };
+
+    orders.forEach(processItem);
+    bookings.forEach(processItem);
 
     const revenueChart = days.map(d => ({ name: d, value: revenueByDayMap[d] }));
 
-    const totalOrders = orders.length;
-    const avgOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
+    const totalTransactions = orders.length + bookings.length;
+    const avgOrderValue = totalTransactions > 0 ? Math.round(totalRevenue / totalTransactions) : 0;
 
     const totalCustomers = await prisma.customer.count();
 
@@ -362,7 +418,7 @@ router.get('/analytics', async (req, res, next) => {
       success: true,
       data: {
         totalRevenue,
-        totalOrders,
+        totalOrders: totalTransactions,
         totalCustomers,
         avgOrderValue,
         revenueChart,

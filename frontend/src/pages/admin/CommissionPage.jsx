@@ -61,6 +61,7 @@ export default function CommissionPage() {
               <thead>
                 <tr className="bg-zinc-950/50 text-[10px] uppercase font-bold text-zinc-500 tracking-widest">
                   <th className="px-6 py-4">Vendor</th>
+                  <th className="px-6 py-4">Type</th>
                   <th className="px-6 py-4">Total Sales</th>
                   <th className="px-6 py-4">Orders</th>
                   <th className="px-6 py-4">Commission</th>
@@ -77,9 +78,16 @@ export default function CommissionPage() {
                   <tr>
                     <td colSpan="6" className="px-6 py-10 text-center text-zinc-500 text-sm">No commission data available.</td>
                   </tr>
-                ) : data?.vendors?.map((vendor, idx) => (
+                ) : data?.vendors?.map((vendor, idx) => {
+                  const isSalon = vendor.vendorType === 'salon';
+                  return (
                   <tr key={idx} className="hover:bg-white/5 transition-colors group">
                     <td className="px-6 py-4 text-sm font-semibold text-white">{vendor.vendorName}</td>
+                    <td className="px-6 py-4">
+                      <Badge variant={isSalon ? 'purple' : 'orange'}>
+                        {isSalon ? 'SALON' : 'FOOD'}
+                      </Badge>
+                    </td>
                     <td className="px-6 py-4 text-sm text-zinc-400">₹{vendor.totalSales.toLocaleString()}</td>
                     <td className="px-6 py-4 text-sm text-zinc-500">{vendor.orders} orders</td>
                     <td className="px-6 py-4 text-sm font-bold text-[#d4ff00]">₹{vendor.commission.toLocaleString()}</td>
@@ -90,7 +98,8 @@ export default function CommissionPage() {
                     </td>
                     <td className="px-6 py-4 text-xs text-zinc-500 italic">Aggregated Real-time</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

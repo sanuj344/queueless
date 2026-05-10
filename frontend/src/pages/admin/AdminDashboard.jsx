@@ -119,15 +119,18 @@ export default function AdminDashboard() {
               <thead>
                 <tr className="bg-zinc-50 dark:bg-zinc-950/50 text-[10px] uppercase font-bold text-zinc-500 tracking-widest">
                   <th className="px-6 py-4">Vendor Name</th>
+                  <th className="px-6 py-4">Type</th>
                   <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Orders (Today)</th>
+                  <th className="px-6 py-4">Transactions</th>
                   <th className="px-6 py-4">Cancelled</th>
                   <th className="px-6 py-4">Total Amount</th>
                   <th className="px-6 py-4">Joined Date</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
-                {filteredVendors.map((vendor, i) => (
+                {filteredVendors.map((vendor, i) => {
+                  const isSalon = vendor.vendorType === 'salon';
+                  return (
                   <tr key={i} className="hover:bg-zinc-50 dark:hover:bg-white/5 transition-colors group">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -136,6 +139,11 @@ export default function AdminDashboard() {
                         </div>
                         <span className="text-sm font-semibold text-zinc-900 dark:text-white">{vendor.name}</span>
                       </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <Badge variant={isSalon ? 'purple' : 'orange'}>
+                        {isSalon ? 'SALON' : 'FOOD'}
+                      </Badge>
                     </td>
                     <td className="px-6 py-4">
                       <Badge variant={vendor.status === 'verified' ? 'green' : 'zinc'}>
@@ -149,7 +157,8 @@ export default function AdminDashboard() {
                       {vendor.joinedAt ? new Date(vendor.joinedAt).toLocaleDateString() : 'N/A'}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

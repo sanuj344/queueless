@@ -10,7 +10,6 @@ const menuItems = [
   { name: 'Commission', icon: '💰', path: '/admin/commission' },
   { name: 'Reports', icon: '📈', path: '/admin/reports' },
   { name: 'Complaints', icon: '⚠️', path: '/admin/complaints' },
-  { name: 'Settings', icon: '⚙️', path: '/admin/settings' },
 ];
 
 export default function AdminSidebar({ onClose }) {
