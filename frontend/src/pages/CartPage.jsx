@@ -110,10 +110,12 @@ export default function CartPage() {
                   <span className="text-zinc-500">Platform Fee</span>
                   <span className="text-[#8cb800] dark:text-[#d4ff00] font-black">{formatCurrency(fee)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">GST (5%)</span>
-                  <span className="font-bold">{formatCurrency(tax)}</span>
-                </div>
+                {tax > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-zinc-500">GST (5%)</span>
+                    <span className="font-bold">{formatCurrency(tax)}</span>
+                  </div>
+                )}
               </div>
               <div className="flex justify-between text-lg font-black mb-6">
                 <span>Total</span>

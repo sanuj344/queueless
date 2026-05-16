@@ -82,7 +82,7 @@ router.get('/:id', async (req, res, next) => {
 // POST /bookings/customer-action — customer notifies vendor (public)
 router.post('/customer-action', async (req, res, next) => {
   try {
-    const { bookingId, action } = req.body;
+    const { bookingId, action, delayMinutes } = req.body;
     const validActions = ['coming', 'delayed', 'contact'];
     if (!validActions.includes(action)) {
       return res.status(400).json({ success: false, message: 'Invalid action' });
@@ -91,9 +91,20 @@ router.post('/customer-action', async (req, res, next) => {
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found' });
     }
+
+    const updateData = { customerAction: action };
+    
+    if (action === 'delayed') {
+      updateData.customerDelayMinutes = delayMinutes ? parseInt(delayMinutes) : 5;
+      updateData.customerDelayUpdatedAt = new Date();
+    } else {
+      updateData.customerDelayMinutes = null;
+      updateData.customerDelayUpdatedAt = null;
+    }
+
     const updated = await prisma.booking.update({
       where: { id: bookingId },
-      data: { customerAction: action }
+      data: updateData
     });
     res.json({ success: true, data: updated });
   } catch (error) {
@@ -229,6 +240,13 @@ router.patch('/:id', protect, restrictTo('vendor'), async (req, res, next) => {
       updateData.serviceStartTime = now;
     } else if (status === 'completed') {
       updateData.serviceEndTime = new Date();
+    }
+
+    // Clear customer actions when booking moves beyond accepted
+    if (status === 'in_service' || status === 'completed') {
+      updateData.customerAction = null;
+      updateData.customerDelayMinutes = null;
+      updateData.customerDelayUpdatedAt = null;
     }
 
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import Button from '../components/Button';
+import DelayModal from '../components/DelayModal';
 import toast from 'react-hot-toast';
 
 const STATUS_STEPS = { placed: 1, accepted: 2, in_service: 3, completed: 4 };
@@ -24,6 +25,7 @@ export default function BookingStatusPage() {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [isDelayModalOpen, setIsDelayModalOpen] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -52,11 +54,19 @@ export default function BookingStatusPage() {
     return () => clearInterval(interval);
   }, [id, navigate]);
 
-  const sendAction = async (action) => {
+  const sendAction = async (action, minutes = null) => {
     try {
-      const res = await api.post('/bookings/customer-action', { bookingId: booking.id, action });
-      if (res.data.success) setBooking(res.data.data);
-    } catch (e) { console.error(e); }
+      const payload = { bookingId: booking.id, action };
+      if (minutes) payload.delayMinutes = minutes;
+      const res = await api.post('/bookings/customer-action', payload);
+      if (res.data.success) {
+        setBooking(res.data.data);
+        if (action === 'delayed') toast.success(`Delayed by ${minutes || 5} mins`);
+      }
+    } catch (e) { 
+      console.error(e); 
+      toast.error('Action failed');
+    }
   };
 
   const handleCancel = async () => {
@@ -212,6 +222,17 @@ export default function BookingStatusPage() {
               <span className="font-bold text-zinc-900 dark:text-white">₹{s.price}</span>
             </div>
           ))}
+          <div className="mt-4 pt-3 border-t border-zinc-200 dark:border-zinc-700 space-y-1.5">
+            <div className="flex justify-between items-center text-xs text-zinc-500 font-bold">
+              <span>Paid Online (Platform Fee)</span>
+              <span className="text-emerald-500">₹{booking.platformFee || 0}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="font-bold text-sm text-zinc-900 dark:text-white">Pay at Salon</span>
+              <span className="font-black text-purple-600 dark:text-purple-400 text-lg">₹{booking.totalAmount}</span>
+            </div>
+            <p className="text-[9px] text-zinc-400 italic mt-1 text-center font-bold">Total Service Value: ₹{booking.finalAmount}</p>
+          </div>
         </div>
       )}
 
@@ -222,18 +243,36 @@ export default function BookingStatusPage() {
           <div className="grid grid-cols-1 gap-3">
             {[
               { action: 'coming', label: 'I am Coming', activeColor: 'bg-emerald-500 text-white border-none', inactiveColor: 'border-emerald-500/30 text-emerald-500' },
-              { action: 'delayed', label: 'I will be Delayed', activeColor: 'bg-amber-500 text-white border-none', inactiveColor: 'border-amber-500/30 text-amber-500' },
+              { action: 'delayed', label: booking.customerAction === 'delayed' && booking.customerDelayMinutes ? `Delayed by ${booking.customerDelayMinutes}m` : 'I will be Delayed', activeColor: 'bg-amber-500 text-white border-none shadow-lg shadow-amber-500/20', inactiveColor: 'border-amber-500/30 text-amber-500' },
               { action: 'contact', label: 'Contact Salon', activeColor: 'bg-blue-500 text-white border-none', inactiveColor: 'border-blue-500/30 text-blue-500' }
             ].map(({ action, label, activeColor, inactiveColor }) => (
               <Button key={action} fullWidth variant={booking.customerAction === action ? 'default' : 'outline'}
                 className={booking.customerAction === action ? activeColor : inactiveColor}
-                onClick={() => sendAction(action)}>
+                onClick={() => {
+                  if (action === 'delayed') {
+                    setIsDelayModalOpen(true);
+                  } else {
+                    sendAction(action);
+                  }
+                }}>
                 {booking.customerAction === action ? `✓ ${label}` : label}
               </Button>
             ))}
           </div>
+          {booking.customerAction === 'delayed' && (
+            <p className="text-[10px] text-zinc-400 mt-2 text-center font-medium animate-pulse uppercase tracking-[0.2em]">
+              Salon has been notified of your {booking.customerDelayMinutes}m delay
+            </p>
+          )}
         </div>
       )}
+
+      <DelayModal 
+        isOpen={isDelayModalOpen} 
+        onClose={() => setIsDelayModalOpen(false)}
+        onUpdate={(mins) => sendAction('delayed', mins)}
+        currentDelay={booking.customerDelayMinutes}
+      />
 
       {/* Arrival Confirmation */}
       {['accepted', 'placed'].includes(booking.status) && !booking.hasArrived && (
@@ -313,6 +352,13 @@ export default function BookingStatusPage() {
       <div className="flex gap-3 w-full max-w-md">
         <Link to="/" className="flex-1"><Button variant="outline" fullWidth size="lg">Home</Button></Link>
       </div>
+
+      <DelayModal
+        isOpen={isDelayModalOpen}
+        onClose={() => setIsDelayModalOpen(false)}
+        onUpdate={(mins) => sendAction('delayed', mins)}
+        currentDelay={booking.customerDelayMinutes}
+      />
     </div>
   );
 }

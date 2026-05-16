@@ -7,8 +7,8 @@ export function formatCurrency(amount) {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(amount);
 }
 
@@ -19,22 +19,4 @@ export function formatCurrency(amount) {
  */
 export function calcSubtotal(items) {
   return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-}
-
-/**
- * Calculate platform fee (Fixed ₹2)
- * @param {number} subtotal
- * @returns {number}
- */
-export function calcFee(subtotal) {
-  return subtotal > 0 ? 2 : 0;
-}
-
-/**
- * Calculate GST (5%)
- * @param {number} subtotal
- * @returns {number}
- */
-export function calcTax(subtotal) {
-  return Math.round(subtotal * 0.05);
 }

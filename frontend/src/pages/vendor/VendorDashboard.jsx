@@ -202,7 +202,7 @@ export default function VendorDashboard() {
   });
   
   const pendingOrders = sortedOrders.filter((o) => ['pending', 'placed', 'live'].includes(o.status));
-  const activeOrders = sortedOrders.filter((o) => ['accepted', 'preparing', 'ready'].includes(o.status));
+  const activeOrders = sortedOrders.filter((o) => ['accepted', 'preparing', 'ready', 'handover_pending'].includes(o.status));
   const completedOrders = sortedOrders.filter((o) => ['completed', 'cancelled'].includes(o.status));
   
   const scheduledOrders = sortedOrders.filter(o => o.status === 'upcoming');
@@ -464,9 +464,25 @@ export default function VendorDashboard() {
                           </Button>
                         )}
                         {order.status === 'ready' && (
-                          <Button size="sm" fullWidth onClick={() => updateOrderStatus(order.id, 'completed')} className="bg-emerald-600 hover:bg-emerald-700 text-white border-none">
-                            Complete Handover
-                          </Button>
+                          <>
+                            {order.pickupConfirmedByCustomer && (
+                              <div className="mb-2 p-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-center">
+                                <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">
+                                  ✅ Customer Already Confirmed
+                                </p>
+                              </div>
+                            )}
+                            <Button size="sm" fullWidth onClick={() => updateOrderStatus(order.id, 'completed')} className="bg-emerald-600 hover:bg-emerald-700 text-white border-none">
+                              Complete Handover
+                            </Button>
+                          </>
+                        )}
+                        {order.status === 'handover_pending' && (
+                          <div className="p-2 bg-blue-500/10 border border-blue-500/20 rounded-xl text-center">
+                            <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest animate-pulse">
+                              Waiting for Customer Confirmation
+                            </p>
+                          </div>
                         )}
                       </OrderCard>
                     ))}
@@ -559,9 +575,14 @@ export default function VendorDashboard() {
                   </div>
                   <button 
                     onClick={async () => {
-                      const newVal = !user.slotEnabled;
-                      await api.patch('/vendor/profile', { slotEnabled: newVal });
-                      setUser({ ...user, slotEnabled: newVal });
+                      try {
+                        const newVal = !user.slotEnabled;
+                        await api.patch('/vendor/profile', { slotEnabled: newVal });
+                        setUser({ ...user, slotEnabled: newVal });
+                        toast.success(`Slot booking ${newVal ? 'enabled' : 'disabled'}`);
+                      } catch (err) {
+                        toast.error('Failed to update slot settings');
+                      }
                     }}
                     className={`w-12 h-6 rounded-full transition-all relative ${user.slotEnabled ? 'bg-[#d4ff00]' : 'bg-zinc-300 dark:bg-zinc-700'}`}
                   >
@@ -577,9 +598,14 @@ export default function VendorDashboard() {
                         <select 
                           value={user.slotDuration || 30}
                           onChange={async (e) => {
-                            const val = parseInt(e.target.value);
-                            await api.patch('/vendor/profile', { slotDuration: val });
-                            setUser({ ...user, slotDuration: val });
+                            try {
+                              const val = parseInt(e.target.value);
+                              await api.patch('/vendor/profile', { slotDuration: val });
+                              setUser({ ...user, slotDuration: val });
+                              toast.success('Slot duration updated');
+                            } catch (err) {
+                              toast.error('Failed to update duration');
+                            }
                           }}
                           className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#d4ff00]"
                         >
@@ -595,9 +621,15 @@ export default function VendorDashboard() {
                           type="number"
                           value={user.maxOrdersPerSlot || 5}
                           onChange={async (e) => {
-                            const val = parseInt(e.target.value);
-                            await api.patch('/vendor/profile', { maxOrdersPerSlot: val });
-                            setUser({ ...user, maxOrdersPerSlot: val });
+                            try {
+                              const val = parseInt(e.target.value);
+                              if (isNaN(val) || val < 1) return;
+                              await api.patch('/vendor/profile', { maxOrdersPerSlot: val });
+                              setUser({ ...user, maxOrdersPerSlot: val });
+                              toast.success('Max orders updated');
+                            } catch (err) {
+                              toast.error('Failed to update capacity');
+                            }
                           }}
                           className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#d4ff00]"
                         />
@@ -611,9 +643,14 @@ export default function VendorDashboard() {
                           type="time"
                           value={user.openingTime || '09:00'}
                           onChange={async (e) => {
-                            const val = e.target.value;
-                            await api.patch('/vendor/profile', { openingTime: val });
-                            setUser({ ...user, openingTime: val });
+                            try {
+                              const val = e.target.value;
+                              await api.patch('/vendor/profile', { openingTime: val });
+                              setUser({ ...user, openingTime: val });
+                              toast.success('Opening time updated');
+                            } catch (err) {
+                              toast.error('Failed to update opening time');
+                            }
                           }}
                           className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#d4ff00]"
                         />
@@ -624,9 +661,14 @@ export default function VendorDashboard() {
                           type="time"
                           value={user.closingTime || '21:00'}
                           onChange={async (e) => {
-                            const val = e.target.value;
-                            await api.patch('/vendor/profile', { closingTime: val });
-                            setUser({ ...user, closingTime: val });
+                            try {
+                              const val = e.target.value;
+                              await api.patch('/vendor/profile', { closingTime: val });
+                              setUser({ ...user, closingTime: val });
+                              toast.success('Closing time updated');
+                            } catch (err) {
+                              toast.error('Failed to update closing time');
+                            }
                           }}
                           className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#d4ff00]"
                         />
@@ -638,20 +680,75 @@ export default function VendorDashboard() {
                 <div className="pt-6 border-t border-zinc-100 dark:border-zinc-800">
                   <h3 className="text-xs font-black text-zinc-900 dark:text-white mb-4 uppercase tracking-widest">Business Details</h3>
                   <div className="space-y-4">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                       <div className="space-y-1">
+                          <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Outlet Name</label>
+                          <input 
+                            value={user.outletName || ''}
+                            onChange={async (e) => {
+                              try {
+                                const val = e.target.value;
+                                await api.patch('/vendor/profile', { outletName: val });
+                                setUser({ ...user, outletName: val });
+                                // Using a debounced approach or just standard onChange?
+                                // For simplicity and immediate persistence as before:
+                              } catch(e) {}
+                            }}
+                            onBlur={async (e) => {
+                              toast.success('Outlet name updated');
+                            }}
+                            className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#d4ff00]"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Phone Number</label>
+                          <input 
+                            value={user.mobile || ''}
+                            onChange={async (e) => {
+                              try {
+                                const val = e.target.value.replace(/\D/g, '');
+                                if (val.length > 10) return;
+                                await api.patch('/vendor/profile', { mobile: val });
+                                setUser({ ...user, mobile: val });
+                              } catch(e) {}
+                            }}
+                            onBlur={() => toast.success('Phone number updated')}
+                            className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#d4ff00]"
+                          />
+                        </div>
+                     </div>
+
                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Outlet Name</label>
-                        <input 
-                          disabled
-                          value={user.outletName || ''}
-                          className="w-full bg-zinc-100 dark:bg-zinc-800/30 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-500 cursor-not-allowed"
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Store Address</label>
+                        <textarea 
+                          value={user.address || ''}
+                          onChange={async (e) => {
+                            try {
+                              const val = e.target.value;
+                              await api.patch('/vendor/profile', { address: val });
+                              setUser({ ...user, address: val });
+                            } catch(e) {}
+                          }}
+                          onBlur={() => toast.success('Address updated')}
+                          rows={2}
+                          className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#d4ff00] resize-none"
                         />
                       </div>
+
                       <div className="space-y-1">
-                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Phone Number</label>
-                        <input 
-                          disabled
-                          value={user.mobile || ''}
-                          className="w-full bg-zinc-100 dark:bg-zinc-800/30 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-500 cursor-not-allowed"
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Store Description</label>
+                        <textarea 
+                          value={user.storeDescription || ''}
+                          onChange={async (e) => {
+                            try {
+                              const val = e.target.value;
+                              await api.patch('/vendor/profile', { storeDescription: val });
+                              setUser({ ...user, storeDescription: val });
+                            } catch(e) {}
+                          }}
+                          onBlur={() => toast.success('Description updated')}
+                          rows={3}
+                          className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#d4ff00] resize-none"
                         />
                       </div>
                   </div>
@@ -846,6 +943,7 @@ function OrderCard({ order, children }) {
     accepted: 'bg-blue-500/10 text-blue-500',
     preparing: 'bg-amber-500/10 text-amber-500',
     ready: 'bg-emerald-500/10 text-emerald-500',
+    handover_pending: 'bg-blue-500/10 text-blue-500',
     completed: 'bg-zinc-500/10 text-zinc-500',
     cancelled: 'bg-red-500/10 text-red-500'
   };
@@ -903,7 +1001,7 @@ function OrderCard({ order, children }) {
              <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
                <span className="text-xs">
                  {order.customerAction === 'coming' && '🚗 Coming'}
-                 {order.customerAction === 'delayed' && '⏰ Delayed'}
+                 {order.customerAction === 'delayed' && `⏰ Delayed by ${order.customerDelayMinutes || 5}m`}
                  {order.customerAction === 'contact' && '📞 Contact'}
                </span>
              </div>
@@ -983,7 +1081,8 @@ function SalonServiceCard({ booking, children, stylists, onAssignStylist }) {
           <p className="text-xs font-bold text-purple-600 dark:text-purple-400 mt-1">📅 {slotStr}</p>
         </div>
         <div className="text-right shrink-0 ml-2">
-          <p className="text-sm font-black text-purple-500">{formatCurrency(booking.totalAmount)}</p>
+          <p className="text-[10px] text-emerald-500 font-bold mb-0.5">Online: {formatCurrency(booking.platformFee || 0)}</p>
+          <p className="text-sm font-black text-purple-500">Salon: {formatCurrency(booking.totalAmount)}</p>
           <p className="text-[10px] text-zinc-500 mt-1">ID: {booking.id.slice(0, 8)}</p>
         </div>
       </div>
@@ -1026,7 +1125,7 @@ function SalonServiceCard({ booking, children, stylists, onAssignStylist }) {
           'bg-blue-500/10 border-blue-500/30 text-blue-600'
         }`}>
           {booking.customerAction === 'coming' && '🚗 Customer is Coming'}
-          {booking.customerAction === 'delayed' && '⏰ Delayed'}
+          {booking.customerAction === 'delayed' && `⏰ Delayed by ${booking.customerDelayMinutes || 5}m`}
           {booking.customerAction === 'contact' && '📞 Please Contact'}
         </div>
       )}

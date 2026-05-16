@@ -5,13 +5,14 @@ import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/Button';
 import Spinner from '../../components/Spinner';
 
-const STATUS_STEPS = { pending: 1, accepted: 2, preparing: 3, ready: 4, completed: 5 };
+const STATUS_STEPS = { pending: 1, placed: 1, live: 1, accepted: 2, preparing: 3, ready: 4, handover_pending: 4, completed: 5 };
 
 export default function CustomerOrdersPage() {
   const { customer: authCustomer } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     // Try both context and localStorage for maximum safety
@@ -46,7 +47,36 @@ export default function CustomerOrdersPage() {
     };
 
     fetchHistory();
+    const interval = setInterval(fetchHistory, 5000);
+    return () => clearInterval(interval);
   }, [authCustomer]);
+
+  useEffect(() => {
+    const timerInterval = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(timerInterval);
+  }, []);
+
+  const getStageTimeLeft = (order) => {
+    const FIVE_MIN = 5 * 60 * 1000;
+    const TEN_MIN = 10 * 60 * 1000;
+    
+    if (order.status === 'placed' || order.status === 'pending' || order.status === 'live') {
+      const startTime = order.activatedAt ? new Date(order.activatedAt).getTime() : new Date(order.createdAt).getTime();
+      const diff = FIVE_MIN - (now - startTime);
+      return Math.max(0, Math.floor(diff / 1000));
+    }
+    if (order.status === 'accepted' && order.acceptedAt) {
+      const diff = TEN_MIN - (now - new Date(order.acceptedAt).getTime());
+      return Math.max(0, Math.floor(diff / 1000));
+    }
+    if (order.status === 'preparing' && order.preparingAt) {
+      const diff = FIVE_MIN - (now - new Date(order.preparingAt).getTime());
+      return Math.max(0, Math.floor(diff / 1000));
+    }
+    return 0;
+  };
 
   if (loading) {
     return (
@@ -113,9 +143,17 @@ export default function CustomerOrdersPage() {
                       <span className="text-[10px] font-black text-zinc-400 font-mono tracking-widest uppercase">#{o.id.slice(0, 8)}</span>
                     </div>
                     <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${statusColor}`}>
-                      {o.status}
+                      {o.status === 'handover_pending' ? '🟡 Confirm Pickup' : o.status}
                     </span>
                   </div>
+
+                  {['placed', 'pending', 'live', 'accepted', 'preparing'].includes(o.status) && (
+                    <div className="mb-4 inline-flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-xl">
+                      <span className="text-[10px] font-black text-red-500 uppercase tracking-widest animate-pulse">
+                        ⏱ {Math.floor(getStageTimeLeft(o) / 60)}m {getStageTimeLeft(o) % 60}s remaining
+                      </span>
+                    </div>
+                  )}
 
                   <div className="flex items-end justify-between">
                     <div>

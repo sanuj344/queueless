@@ -1,5 +1,6 @@
-import { createContext, useContext, useReducer } from 'react';
-import { calcSubtotal, calcFee, calcTax } from '../utils/formatCurrency';
+import { createContext, useContext, useReducer, useEffect } from 'react';
+import { calcSubtotal } from '../utils/formatCurrency';
+import api from '../utils/api';
 
 const CartContext = createContext(null);
 
@@ -93,12 +94,41 @@ function cartReducer(state, action) {
 
 export function CartProvider({ children }) {
   const [state, dispatch] = useReducer(cartReducer, initialState, init);
+  const [backendTotals, setBackendTotals] = useReducer(
+    (s, a) => ({ ...s, ...a }),
+    { subtotal: 0, platformFee: 0, tax: 0, deliveryFee: 0, finalTotal: 0 }
+  );
 
   const subtotal = calcSubtotal(state.items);
-  const fee = calcFee(subtotal);
-  const tax = calcTax(subtotal);
-  const total = subtotal + fee + tax;
   const itemCount = state.items.reduce((sum, i) => sum + i.quantity, 0);
+
+  // Fetch backend totals whenever subtotal changes
+  useEffect(() => {
+    if (state.items.length === 0) {
+      setBackendTotals({ subtotal: 0, platformFee: 0, tax: 0, deliveryFee: 0, finalTotal: 0 });
+      return;
+    }
+
+    const vendorId = state.items[0]?.vendorId;
+    if (!vendorId) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.post('/orders/calculate-total', {
+          subtotal,
+          vendorId
+        });
+        if (res.data.success) {
+          setBackendTotals(res.data.data);
+          console.log('[DEBUG] Backend Totals Fetched:', res.data.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch backend totals:', err);
+      }
+    }, 100); // Small debounce
+
+    return () => clearTimeout(timer);
+  }, [subtotal, state.items]);
 
   const addItem = (item) => dispatch({ type: 'ADD_ITEM', item });
   const removeItem = (id) => dispatch({ type: 'REMOVE_ITEM', id });
@@ -121,10 +151,11 @@ export function CartProvider({ children }) {
         items: state.items,
         isOpen: state.isOpen,
         isCheckoutOpen: state.isCheckoutOpen,
-        subtotal,
-        fee,
-        tax,
-        total,
+        subtotal: backendTotals.subtotal,
+        fee: backendTotals.platformFee,
+        tax: backendTotals.tax,
+        deliveryFee: backendTotals.deliveryFee,
+        total: backendTotals.finalTotal,
         itemCount,
         addItem,
         removeItem,

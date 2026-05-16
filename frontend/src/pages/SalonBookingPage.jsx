@@ -16,14 +16,7 @@ const STEPS = [
   { label: 'Confirm & Pay', icon: '💳' }
 ];
 
-const generateSlots = () => {
-  const slots = [];
-  for (let hour = 9; hour <= 20; hour++) {
-    slots.push(`${String(hour).padStart(2, '0')}:00`);
-    if (hour < 20) slots.push(`${String(hour).padStart(2, '0')}:30`);
-  }
-  return slots;
-};
+// generateSlots moved inside component to access dynamic vendor settings
 
 export default function SalonBookingPage({ vendor, vendorId }) {
   const navigate = useNavigate();
@@ -43,12 +36,37 @@ export default function SalonBookingPage({ vendor, vendorId }) {
   const [bookedSlots, setBookedSlots] = useState([]);
   const [stylists, setStylists] = useState([]);
   const [selectedStylist, setSelectedStylist] = useState(null);
+  const [backendTotals, setBackendTotals] = useState({ subtotal: 0, platformFee: 0, tax: 0, deliveryFee: 0, finalTotal: 0 });
 
   // Customer info — auto-fill if logged in
   const [customerName, setCustomerName] = useState(customer?.name || '');
   const [customerPhone, setCustomerPhone] = useState(customer?.phone || '');
 
   const todayStr = new Date().toISOString().split('T')[0];
+
+  const generateSlots = () => {
+    if (!vendor) return [];
+    const slots = [];
+    const opening = vendor.openingTime || '09:00';
+    const closing = vendor.closingTime || '21:00';
+    const duration = vendor.slotDuration || 30;
+
+    const [startH, startM] = opening.split(':').map(Number);
+    const [endH, endM] = closing.split(':').map(Number);
+
+    let current = new Date();
+    current.setHours(startH, startM, 0, 0);
+
+    const end = new Date();
+    end.setHours(endH, endM, 0, 0);
+
+    while (current < end) {
+      const timeStr = `${String(current.getHours()).padStart(2, '0')}:${String(current.getMinutes()).padStart(2, '0')}`;
+      slots.push(timeStr);
+      current = new Date(current.getTime() + duration * 60000);
+    }
+    return slots;
+  };
 
   useEffect(() => {
     const fetchServices = async () => {
@@ -129,10 +147,35 @@ export default function SalonBookingPage({ vendor, vendorId }) {
     );
   };
 
-  const total = selectedServices.reduce((sum, s) => sum + s.price, 0);
+  const subtotal = selectedServices.reduce((sum, s) => sum + s.price, 0);
   const totalDuration = selectedServices.reduce((sum, s) => sum + (s.duration || 30), 0);
-  const platformFee = Math.ceil(total * 0.05);
-  const finalAmount = total + platformFee;
+
+  // Fetch totals from backend whenever subtotal changes
+  useEffect(() => {
+    if (subtotal === 0) {
+      setBackendTotals({ subtotal: 0, platformFee: 0, tax: 0, deliveryFee: 0, finalTotal: 0 });
+      return;
+    }
+
+    const fetchTotals = async () => {
+      try {
+        const res = await api.post('/orders/calculate-total', {
+          subtotal,
+          vendorId
+        });
+        if (res.data.success) {
+          setBackendTotals(res.data.data);
+          console.log('[DEBUG] Salon Backend Totals:', res.data.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch salon totals:', err);
+      }
+    };
+    fetchTotals();
+  }, [subtotal, vendorId]);
+
+  const platformFee = backendTotals.platformFee;
+  const finalAmount = backendTotals.finalTotal;
 
   // Auth guard — only logged-in customers (not vendors) can book
   const requireCustomer = () => {
@@ -153,9 +196,9 @@ export default function SalonBookingPage({ vendor, vendorId }) {
     customerName,
     customerPhone,
     services: selectedServices.map(s => ({ id: s.id, name: s.name, price: s.price, duration: s.duration })),
-    totalAmount: total,
-    platformFee,
-    finalAmount,
+    totalAmount: backendTotals.subtotal,
+    platformFee: backendTotals.platformFee,
+    finalAmount: backendTotals.finalTotal,
     slotTime: new Date(`${selectedDate}T${selectedSlot}:00`).toISOString(),
     stylistId: selectedStylist?.id === 'anyone' ? null : selectedStylist?.id,
     stylistPreference: selectedStylist?.id === 'anyone' ? 'anyone' : 'specific'
@@ -331,7 +374,7 @@ export default function SalonBookingPage({ vendor, vendorId }) {
                   onClick={() => { if (requireCustomer()) setStep(1); }}
                   className="w-full py-4 bg-[#d4ff00] text-black font-black rounded-2xl shadow-[0_0_30px_rgba(212,255,0,0.25)] hover:bg-[#c0e600] transition-all"
                 >
-                  {customer ? `Next: Pick a Slot → (${selectedServices.length} selected · ${formatCurrency(total)})` : '🔐 Login to Continue'}
+                  {customer ? `Next: Pick a Slot → (${selectedServices.length} selected · ${formatCurrency(backendTotals.subtotal)})` : '🔐 Login to Continue'}
                 </button>
               </div>
             )}
@@ -374,7 +417,24 @@ export default function SalonBookingPage({ vendor, vendorId }) {
         {/* Step 1: Date + Slot */}
         {step === 1 && (
           <div className="space-y-6">
-            <h2 className="text-xs font-black uppercase tracking-widest text-zinc-400">Pick a Date & Slot</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-black uppercase tracking-widest text-zinc-400">Pick a Date & Slot</h2>
+              {!vendor?.slotEnabled && (
+                <span className="text-[10px] font-black uppercase bg-red-500/10 text-red-500 px-2 py-1 rounded-md border border-red-500/20">
+                  Online Booking Disabled
+                </span>
+              )}
+            </div>
+
+            {!vendor?.slotEnabled ? (
+              <div className="p-8 text-center rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
+                <div className="text-3xl mb-3">📵</div>
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-white mb-1">Booking Unavailable</h3>
+                <p className="text-xs text-zinc-500">This vendor has temporarily disabled online slot bookings. Please contact them directly.</p>
+                <button onClick={() => setStep(0)} className="mt-6 text-sm font-bold text-[#8cb800] dark:text-[#d4ff00] underline">← Back to Services</button>
+              </div>
+            ) : (
+              <>
             <div>
               <label className="text-sm font-bold text-zinc-600 dark:text-zinc-400 mb-2 block">Select Date</label>
               <input
@@ -407,11 +467,22 @@ export default function SalonBookingPage({ vendor, vendorId }) {
                       const startMins = startH * 60 + startM;
                       const endMins = startMins + totalDuration;
                       
-                      // Cannot book if it exceeds closing time (e.g. 21:00 = 1260 mins)
-                      if (endMins > 21 * 60) {
+                      // Cannot book if it exceeds closing time
+                      const closing = vendor.closingTime || '21:00';
+                      const [closeH, closeM] = closing.split(':').map(Number);
+                      const maxMins = closeH * 60 + closeM;
+
+                      if (endMins > maxMins) {
                         isAvailable = false;
                       } else {
-                        // Advanced overlap check: ensure at least one stylist is free for the ENTIRE duration
+                        // Check Max Orders Per Slot (Capacity)
+                        const maxOrders = vendor.maxOrdersPerSlot || 5;
+                        const bookingsInSlot = bookedSlots.filter(b => b.startTime === slot).length;
+                        
+                        if (bookingsInSlot >= maxOrders) {
+                          isAvailable = false;
+                        } else {
+                          // Advanced overlap check
                         const stylistIds = vendor?.stylists?.map(s => s.id) || [];
                         
                         if (stylistIds.length === 0) {
@@ -444,6 +515,7 @@ export default function SalonBookingPage({ vendor, vendorId }) {
                             }
                           }
                           if (!hasFreeStylist) isAvailable = false;
+                          }
                         }
                       }
                     }
@@ -475,30 +547,34 @@ export default function SalonBookingPage({ vendor, vendorId }) {
                 </div>
               </div>
             )}
-            <div className="flex gap-3">
-              <button onClick={() => setStep(0)} className="flex-1 py-3 border border-zinc-200 dark:border-zinc-700 rounded-2xl text-sm font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all">← Back</button>
-              <button
-                disabled={!selectedDate || !selectedSlot}
-                onClick={async () => { 
-                  if (requireCustomer()) {
-                    setLoading(true);
-                    try {
-                      const slotISO = new Date(`${selectedDate}T${selectedSlot}:00`).toISOString();
-                      const res = await api.get(`/vendors/${vendorId}/available-stylists?slotTime=${slotISO}&duration=${totalDuration}`);
-                      setStylists(res.data.data || []);
-                      setStep(2);
-                    } catch {
-                      toast.error("Failed to load stylists");
-                    } finally {
-                      setLoading(false);
-                    }
-                  } 
-                }}
-                className="flex-1 py-3 bg-[#d4ff00] text-black font-black rounded-2xl disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#c0e600] transition-all"
-              >
-                Next: Choose Stylist →
-              </button>
-            </div>
+          </>
+        )}
+            {vendor?.slotEnabled && (
+              <div className="flex gap-3">
+                <button onClick={() => setStep(0)} className="flex-1 py-3 border border-zinc-200 dark:border-zinc-700 rounded-2xl text-sm font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all">← Back</button>
+                <button
+                  disabled={!selectedDate || !selectedSlot}
+                  onClick={async () => { 
+                    if (requireCustomer()) {
+                      setLoading(true);
+                      try {
+                        const slotISO = new Date(`${selectedDate}T${selectedSlot}:00`).toISOString();
+                        const res = await api.get(`/vendors/${vendorId}/available-stylists?slotTime=${slotISO}&duration=${totalDuration}`);
+                        setStylists(res.data.data || []);
+                        setStep(2);
+                      } catch {
+                        toast.error("Failed to load stylists");
+                      } finally {
+                        setLoading(false);
+                      }
+                    } 
+                  }}
+                  className="flex-1 py-3 bg-[#d4ff00] text-black font-black rounded-2xl disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#c0e600] transition-all"
+                >
+                  Next: Choose Stylist →
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -599,9 +675,12 @@ export default function SalonBookingPage({ vendor, vendorId }) {
                 </div>
               ))}
               <div className="border-t border-zinc-200 dark:border-zinc-700 pt-3 space-y-1">
-                <div className="flex justify-between text-xs text-zinc-500"><span>Services Total</span><span>{formatCurrency(total)}</span></div>
-                <div className="flex justify-between text-xs text-emerald-500 font-bold"><span>Platform Fee (paid now)</span><span>{formatCurrency(platformFee)}</span></div>
-                <div className="flex justify-between text-xs text-zinc-500"><span>Collect at salon</span><span>{formatCurrency(total)}</span></div>
+                <div className="flex justify-between text-xs text-zinc-500"><span>Services Total</span><span>{formatCurrency(backendTotals.subtotal)}</span></div>
+                {backendTotals.tax > 0 && (
+                  <div className="flex justify-between text-xs text-zinc-500"><span>GST (5%)</span><span>{formatCurrency(backendTotals.tax)}</span></div>
+                )}
+                <div className="flex justify-between text-xs text-emerald-500 font-bold"><span>Platform Fee (paid now)</span><span>{formatCurrency(backendTotals.platformFee)}</span></div>
+                <div className="flex justify-between text-xs text-zinc-500 font-black pt-1 border-t border-zinc-100 dark:border-zinc-800 mt-1"><span>Total Payable</span><span>{formatCurrency(backendTotals.finalTotal)}</span></div>
               </div>
             </div>
 
@@ -625,6 +704,9 @@ export default function SalonBookingPage({ vendor, vendorId }) {
                   </span>
                 </button>
               )}
+              <p className="text-[10px] font-bold text-emerald-500 text-center px-4 py-2 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
+                ✨ Only the platform fee ({formatCurrency(platformFee)}) is paid online/via wallet. The service amount ({formatCurrency(subtotal)}) is to be paid at the salon.
+              </p>
             </div>
             <button onClick={() => setStep(2)} className="w-full text-center text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors py-2">← Back to stylists</button>
           </div>

@@ -4,8 +4,21 @@ import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 import ReviewModal from '../components/ReviewModal';
+import DelayModal from '../components/DelayModal';
+import toast from 'react-hot-toast';
 
-const STATUS_STEPS = { upcoming: 0, pending: 1, placed: 1, live: 1, accepted: 2, preparing: 3, ready: 4, completed: 5 };
+const STATUS_STEPS = { 
+  upcoming: 0, 
+  pending: 1, 
+  placed: 1, 
+  live: 1, 
+  accepted: 2, 
+  preparing: 3, 
+  ready: 4, 
+  handover_pending: 4, 
+  completed: 5 
+};
+
 const STEPS_DATA = [
   { id: 1, label: 'Order Placed' },
   { id: 2, label: 'Accepted by Vendor' },
@@ -24,6 +37,9 @@ export default function OrderStatusPage() {
   const [error, setError] = useState('');
   const [manualId, setManualId] = useState('');
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [isDelayModalOpen, setIsDelayModalOpen] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  const [confirming, setConfirming] = useState(false);
 
   const handleCancel = async () => {
     if (!window.confirm("Are you sure you want to cancel this order?")) return;
@@ -37,17 +53,18 @@ export default function OrderStatusPage() {
     }
   };
 
-  const sendAction = async (action) => {
+  const sendAction = async (action, minutes = null) => {
     try {
-      const res = await api.post('/orders/customer-action', {
-        orderId: order.id,
-        action
-      });
+      const payload = { orderId: order.id, action };
+      if (minutes) payload.delayMinutes = minutes;
+      const res = await api.post('/orders/customer-action', payload);
       if (res.data.success) {
         setOrder(res.data.data);
+        if (action === 'delayed') toast.success(`Delayed by ${minutes || 5} mins`);
       }
     } catch (err) {
       console.error('Failed to update action:', err);
+      toast.error('Action failed');
     }
   };
 
@@ -92,6 +109,51 @@ export default function OrderStatusPage() {
     interval = setInterval(fetchOrder, 3000);
     return () => clearInterval(interval);
   }, [id]);
+
+  // Timer update effect
+  useEffect(() => {
+    if (!order || !['placed', 'pending', 'live', 'accepted', 'preparing', 'ready'].includes(order.status)) return;
+    const timerInterval = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(timerInterval);
+  }, [order?.status]);
+
+  const getStageTimeLeft = () => {
+    if (!order) return 0;
+    const FIVE_MIN = 5 * 60 * 1000;
+    const TEN_MIN = 10 * 60 * 1000;
+    
+    if (order.status === 'placed' || order.status === 'pending' || order.status === 'live') {
+      const startTime = order.activatedAt ? new Date(order.activatedAt).getTime() : new Date(order.createdAt).getTime();
+      const diff = FIVE_MIN - (now - startTime);
+      return Math.max(0, Math.floor(diff / 1000));
+    }
+    if (order.status === 'accepted' && order.acceptedAt) {
+      const diff = TEN_MIN - (now - new Date(order.acceptedAt).getTime());
+      return Math.max(0, Math.floor(diff / 1000));
+    }
+    if (order.status === 'preparing' && order.preparingAt) {
+      const diff = FIVE_MIN - (now - new Date(order.preparingAt).getTime());
+      return Math.max(0, Math.floor(diff / 1000));
+    }
+    return 0;
+  };
+
+  const handleConfirmPickup = async () => {
+    setConfirming(true);
+    try {
+      const res = await api.post(`/orders/${order.id}/confirm-pickup`);
+      if (res.data.success) {
+        setOrder(res.data.data);
+        toast.success('Pickup confirmed successfully!');
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to confirm pickup');
+    } finally {
+      setConfirming(false);
+    }
+  };
 
   if (loading) return (
     <div className="min-h-screen bg-white dark:bg-black pt-28 flex justify-center text-zinc-500 text-sm">
@@ -174,9 +236,16 @@ export default function OrderStatusPage() {
                   <span className="font-bold text-zinc-900 dark:text-white">₹{item.price * item.quantity}</span>
                 </div>
               ))}
-              <div className="pt-3 border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
-                <span className="font-black text-zinc-900 dark:text-white">Total Amount</span>
-                <span className="font-black text-[#d4ff00] text-lg">₹{order.totalAmount}</span>
+              <div className="pt-3 border-t border-zinc-200 dark:border-zinc-800 space-y-1">
+                <div className="flex justify-between items-center text-xs text-zinc-500 font-bold">
+                  <span>Paid Online (Platform Fee)</span>
+                  <span className="text-emerald-500">₹{order.platformFee || 0}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-black text-zinc-900 dark:text-white">Pay at Stall</span>
+                  <span className="font-black text-[#d4ff00] text-lg">₹{order.totalAmount}</span>
+                </div>
+                <p className="text-[9px] text-zinc-400 italic mt-1 text-center font-bold">Total Order Value: ₹{order.finalAmount}</p>
               </div>
             </div>
           </div>
@@ -214,6 +283,18 @@ export default function OrderStatusPage() {
             </div>
           )}
 
+          {['placed', 'pending', 'live', 'accepted', 'preparing'].includes(order.status) && (
+            <div className="mt-6 flex flex-col items-center">
+               <div className="px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-2xl animate-pulse">
+                  <p className="text-xs font-black text-red-500 uppercase tracking-widest">
+                    ⏱ {Math.floor(getStageTimeLeft() / 60)}m {getStageTimeLeft() % 60}s Remaining
+                  </p>
+               </div>
+               <p className="text-[10px] text-zinc-500 font-bold mt-2 uppercase tracking-tight">
+                 {order.status === 'accepted' ? 'Estimated Prep Time' : 'Waiting for vendor to accept'}
+               </p>
+            </div>
+          )}
         </div>
 
         <div className="w-full max-w-md rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-6 sm:p-8 mb-8 shadow-xl">
@@ -251,34 +332,78 @@ export default function OrderStatusPage() {
           </div>
         </div>
 
-        {order.status === 'ready' && (
-          <div className="w-full max-w-md mt-6 space-y-3 px-4">
-            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest text-center mb-2">Update Vendor</h3>
-            <div className="grid grid-cols-1 gap-3">
-              <Button 
-                fullWidth 
-                variant={order.customerAction === 'coming' ? 'default' : 'outline'}
-                className={order.customerAction === 'coming' ? 'bg-emerald-500 text-white border-none' : 'border-emerald-500/30 text-emerald-500'}
-                onClick={() => sendAction('coming')}
-              >
-                {order.customerAction === 'coming' ? '✓ I am Coming' : 'I am Coming'}
-              </Button>
-              <Button 
-                fullWidth 
-                variant={order.customerAction === 'delayed' ? 'default' : 'outline'}
-                className={order.customerAction === 'delayed' ? 'bg-amber-500 text-white border-none' : 'border-amber-500/30 text-amber-500'}
-                onClick={() => sendAction('delayed')}
-              >
-                {order.customerAction === 'delayed' ? '✓ I will be Delayed' : 'I will be Delayed (5 min)'}
-              </Button>
-              <Button 
-                fullWidth 
-                variant={order.customerAction === 'contact' ? 'default' : 'outline'}
-                className={order.customerAction === 'contact' ? 'bg-blue-500 text-white border-none' : 'border-blue-500/30 text-blue-500'}
-                onClick={() => sendAction('contact')}
-              >
-                {order.customerAction === 'contact' ? '✓ Calling Vendor' : 'Contact Vendor'}
-              </Button>
+        {(order.status === 'ready' || order.status === 'handover_pending') && (
+          <div className="w-full max-w-md mt-6 space-y-4 px-4">
+            
+            {order.status === 'handover_pending' && (
+              <div className="p-5 bg-emerald-500/10 border-2 border-emerald-500/30 rounded-[2rem] text-center animate-in zoom-in duration-500 shadow-xl shadow-emerald-500/10">
+                <p className="text-sm font-black text-emerald-600 dark:text-emerald-400 mb-4">
+                   Vendor has initiated handover. Please confirm that you have received your order.
+                </p>
+                <Button 
+                  fullWidth 
+                  size="xl"
+                  loading={confirming}
+                  onClick={handleConfirmPickup}
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white border-none shadow-lg shadow-emerald-500/30"
+                >
+                  Confirm Pickup ✅
+                </Button>
+              </div>
+            )}
+
+            {order.status === 'ready' && !order.handoverCompletedByVendor && (
+              <div className="p-5 bg-blue-500/5 border border-blue-500/20 rounded-[2rem] text-center shadow-lg">
+                <p className="text-xs font-bold text-blue-500 mb-4 uppercase tracking-widest">Pickup Confirmation</p>
+                {order.pickupConfirmedByCustomer ? (
+                  <div className="py-2">
+                    <p className="text-sm font-black text-blue-600 animate-pulse">
+                      ✅ Pickup Confirmed! Waiting for vendor to handover.
+                    </p>
+                  </div>
+                ) : (
+                  <Button 
+                    fullWidth 
+                    size="lg"
+                    loading={confirming}
+                    onClick={handleConfirmPickup}
+                    variant="outline"
+                    className="border-blue-500 text-blue-500 hover:bg-blue-500/5"
+                  >
+                    I have received my order
+                  </Button>
+                )}
+              </div>
+            )}
+
+            <div className="pt-4">
+              <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest text-center mb-4">Update Vendor</h3>
+              <div className="grid grid-cols-1 gap-3">
+                <Button 
+                  fullWidth 
+                  variant={order.customerAction === 'coming' ? 'default' : 'outline'}
+                  className={order.customerAction === 'coming' ? 'bg-emerald-500 text-white border-none' : 'border-emerald-500/30 text-emerald-500'}
+                  onClick={() => sendAction('coming')}
+                >
+                  {order.customerAction === 'coming' ? '✓ I am Coming' : 'I am Coming'}
+                </Button>
+                <Button 
+                  fullWidth 
+                  variant={order.customerAction === 'delayed' ? 'default' : 'outline'}
+                  className={order.customerAction === 'delayed' ? 'bg-amber-500 text-white border-none shadow-lg shadow-amber-500/20' : 'border-amber-500/30 text-amber-500'}
+                  onClick={() => setIsDelayModalOpen(true)}
+                >
+                  {order.customerAction === 'delayed' ? `✓ Delayed by ${order.customerDelayMinutes || 5}m` : 'I will be Delayed'}
+                </Button>
+                <Button 
+                  fullWidth 
+                  variant={order.customerAction === 'contact' ? 'default' : 'outline'}
+                  className={order.customerAction === 'contact' ? 'bg-blue-500 text-white border-none' : 'border-blue-500/30 text-blue-500'}
+                  onClick={() => sendAction('contact')}
+                >
+                  {order.customerAction === 'contact' ? '✓ Calling Vendor' : 'Contact Vendor'}
+                </Button>
+              </div>
             </div>
             {order.customerAction && (
               <p className="text-[10px] text-center text-zinc-500 animate-pulse font-bold uppercase tracking-tighter">
@@ -349,6 +474,13 @@ export default function OrderStatusPage() {
           onReviewSubmitted={() => {
             setOrder(prev => prev ? { ...prev, reviewGiven: true } : prev);
           }}
+        />
+
+        <DelayModal
+          isOpen={isDelayModalOpen}
+          onClose={() => setIsDelayModalOpen(false)}
+          onUpdate={(mins) => sendAction('delayed', mins)}
+          currentDelay={order.customerDelayMinutes}
         />
       </div>
     );

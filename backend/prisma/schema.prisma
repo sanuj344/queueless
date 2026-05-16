@@ -100,6 +100,8 @@ model Booking {
   createdAt      DateTime  @default(now())
   reviews        Review[]
   reviewGiven    Boolean   @default(false)
+  customerDelayMinutes       Int?
+  customerDelayUpdatedAt     DateTime?
 }
 
 model Stylist {
@@ -171,6 +173,14 @@ model Order {
   activationTime    DateTime?
   isActivated       Boolean     @default(true)
   activatedAt       DateTime?
+
+  // Dual Confirmation Handover
+  handoverCompletedByVendor  Boolean   @default(false)
+  pickupConfirmedByCustomer  Boolean   @default(false)
+  handoverCompletedAt        DateTime?
+  pickupConfirmedAt          DateTime?
+  customerDelayMinutes       Int?
+  customerDelayUpdatedAt     DateTime?
 }
 
 

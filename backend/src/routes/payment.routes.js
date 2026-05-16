@@ -3,6 +3,7 @@ const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const prisma = require('../config/prisma');
 const { generateVendorToken } = require('../services/token.service');
+const { calculateOrderTotals } = require('../utils/orderCalculator');
 
 const router = express.Router();
 const { protect } = require('../middlewares/auth.middleware');
@@ -64,7 +65,21 @@ router.post('/verify', async (req, res, next) => {
       return res.status(400).json({ message: 'Vendor ID missing' });
     }
 
-    const { customerName, customerPhone, vendorId, totalAmount, platformFee, finalAmount } = orderData;
+    const { customerName, customerPhone, vendorId, totalAmount } = orderData;
+    
+    // RE-CALCULATE totals on backend for security and consistency
+    const vendorForTotals = await prisma.user.findUnique({
+      where: { id: vendorId },
+      select: { hasGst: true, vendorType: true }
+    });
+
+    const totals = calculateOrderTotals({
+      subtotal: totalAmount,
+      hasGst: vendorForTotals?.hasGst || false,
+      vendorType: vendorForTotals?.vendorType || orderData.type || 'food'
+    });
+
+    console.log('[DEBUG] Payment Verify - Calculated Totals:', totals);
 
     // Check if phone belongs to a vendor
     const existingVendor = await prisma.user.findFirst({
@@ -152,9 +167,9 @@ router.post('/verify', async (req, res, next) => {
           customerId: customer.id,
           vendorId,
           services,
-          totalAmount: parseFloat(totalAmount),
-          platformFee: parseFloat(platformFee || 0),
-          finalAmount: parseFloat(finalAmount || totalAmount),
+          totalAmount: totals.subtotal,
+          platformFee: totals.platformFee,
+          finalAmount: totals.finalTotal,
           slotTime: slotDateTime,
           slotEndTime,
           totalDuration,
@@ -221,9 +236,9 @@ router.post('/verify', async (req, res, next) => {
         customerId: customer.id,
         vendorId,
         items,
-        totalAmount: parseFloat(totalAmount),
-        platformFee: parseFloat(platformFee || 0),
-        finalAmount: parseFloat(finalAmount || totalAmount),
+        totalAmount: totals.subtotal,
+        platformFee: totals.platformFee,
+        finalAmount: totals.finalTotal,
         status,
         paymentMethod: 'razorpay',
         paymentStatus: 'paid',
@@ -325,11 +340,22 @@ const clientOrderIdCache = new Map();
 router.post('/wallet-pay', async (req, res, next) => {
   try {
     const { userId, amount, commissionAmount, orderData } = req.body;
-    const finalCommission = parseFloat(commissionAmount || amount);
+    const { vendorId } = orderData;
 
-    if (!finalCommission) {
-      return res.status(400).json({ message: 'Commission amount required' });
-    }
+    // RE-CALCULATE totals on backend
+    const vendorForTotals = await prisma.user.findUnique({
+      where: { id: vendorId },
+      select: { hasGst: true, vendorType: true }
+    });
+
+    const totals = calculateOrderTotals({
+      subtotal: parseFloat(orderData.totalAmount),
+      hasGst: vendorForTotals?.hasGst || false,
+      vendorType: vendorForTotals?.vendorType || orderData.type || 'food'
+    });
+
+    console.log('[DEBUG] Wallet Pay - Calculated Totals:', totals);
+    const finalCommission = totals.platformFee; 
 
     let wallet = await prisma.wallet.findUnique({
       where: { customerId: userId }
@@ -369,7 +395,6 @@ router.post('/wallet-pay', async (req, res, next) => {
     }
 
     // 🍔 Pre-validation for Slots/Stylists before wallet deduction
-    const { vendorId } = orderData;
     const vendor = await prisma.user.findUnique({
       where: { id: vendorId },
       select: { averagePrepTime: true, vendorType: true }
@@ -457,9 +482,9 @@ router.post('/wallet-pay', async (req, res, next) => {
       const booking = await prisma.booking.create({
         data: {
           customerName, customerPhone, customerId: userId, vendorId,
-          services, totalAmount: parseFloat(totalAmount),
-          platformFee: parseFloat(platformFee || 0),
-          finalAmount: parseFloat(finalAmount || totalAmount),
+          services, totalAmount: totals.subtotal,
+          platformFee: totals.platformFee,
+          finalAmount: totals.finalTotal,
           slotTime: slotDateTime, slotEndTime, totalDuration,
           status: 'placed',
           paymentMethod: 'wallet', paymentStatus: 'paid',
@@ -504,9 +529,9 @@ router.post('/wallet-pay', async (req, res, next) => {
     const createdOrder = await prisma.order.create({
       data: {
         customerName, customerPhone, customerId: userId, vendorId,
-        items, totalAmount: parseFloat(totalAmount),
-        platformFee: parseFloat(platformFee || 0),
-        finalAmount: parseFloat(finalAmount || totalAmount),
+        items, totalAmount: totals.subtotal,
+        platformFee: totals.platformFee,
+        finalAmount: totals.finalTotal,
         status, paymentMethod: 'wallet', paymentStatus: 'paid',
         deliveryTime: deliveryTime || 'ASAP', expiresAt,
         tokenNumber: null, tokenIndex: null,

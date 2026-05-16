@@ -32,13 +32,7 @@ export default function CheckoutModal() {
   const [selectedSlotData, setSelectedSlotData] = useState(null);
 
 
-  const calculatePlatformFee = (amount) => {
-    if (amount < 200) return 5;
-    if (amount <= 500) return 10;
-    if (amount <= 1000) return 15;
-    return 20;
-  };
-  const dynamicFee = calculatePlatformFee(subtotal);
+
 
 
   useEffect(() => {
@@ -102,9 +96,6 @@ export default function CheckoutModal() {
     try {
       const vendorId = activeVendorId || items[0]?.vendorId;
 
-      const fee = dynamicFee;
-
-
       const payload = {
         customerName: guestInfo.name,
         customerPhone: guestInfo.phone,
@@ -112,7 +103,7 @@ export default function CheckoutModal() {
         items: items.map(i => ({ id: i.id, name: i.name, quantity: i.quantity, price: i.price })),
         totalAmount: subtotal,
         platformFee: fee,
-        finalAmount: subtotal + fee,
+        finalAmount: total,
         deliveryTime: vendor?.slotEnabled ? `Slot: ${selectedSlotData.time}` : deliveryTime,
         scheduledDate: selectedSlotData?.date || null,
         scheduledSlot: selectedSlotData?.time || null,
@@ -345,25 +336,25 @@ export default function CheckoutModal() {
                 </div>
               </label>
 
-              <label className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${paymentMethod === 'wallet' ? 'border-[#d4ff00] bg-[#d4ff00]/5' : 'border-zinc-200 dark:border-zinc-800 hover:border-[#d4ff00]/40'} ${walletBalance === null || walletBalance < dynamicFee ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <label className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${paymentMethod === 'wallet' ? 'border-[#d4ff00] bg-[#d4ff00]/5' : 'border-zinc-200 dark:border-zinc-800 hover:border-[#d4ff00]/40'} ${walletBalance === null || walletBalance < fee ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 <input
                   type="radio"
                   name="paymentMethod"
                   value="wallet"
                   checked={paymentMethod === 'wallet'}
                   onChange={() => {
-                    if (walletBalance !== null && walletBalance >= dynamicFee) {
+                    if (walletBalance !== null && walletBalance >= fee) {
                       setPaymentMethod('wallet');
                     }
                   }}
-                  disabled={walletBalance === null || walletBalance < dynamicFee}
+                  disabled={walletBalance === null || walletBalance < fee}
                   className="accent-[#d4ff00]"
                 />
                 <div className="flex-1">
                   <p className="text-xs font-bold text-zinc-900 dark:text-white">Pay with Wallet</p>
                   {walletBalance !== null ? (
-                    <p className={`text-[10px] font-bold mt-0.5 ${walletBalance >= dynamicFee ? 'text-emerald-500' : 'text-red-500'}`}>
-                      Bal: {formatCurrency(walletBalance)} {walletBalance < dynamicFee && '(Low)'}
+                    <p className={`text-[10px] font-bold mt-0.5 ${walletBalance >= fee ? 'text-emerald-500' : 'text-red-500'}`}>
+                      Bal: {formatCurrency(walletBalance)} {walletBalance < fee && '(Low)'}
                     </p>
                   ) : (
                     <p className="text-[10px] text-zinc-500">Checking balance...</p>
@@ -380,7 +371,7 @@ export default function CheckoutModal() {
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-zinc-500">Platform Fee (Pay Online Now)</span>
-              <span className="font-black text-[#8cb800] dark:text-[#d4ff00]">{formatCurrency(dynamicFee)}</span>
+              <span className="font-black text-[#8cb800] dark:text-[#d4ff00]">{formatCurrency(fee)}</span>
             </div>
             <div className="pt-3 border-t border-dashed border-zinc-200 dark:border-zinc-700">
               {paymentMethod === 'wallet' ? (
@@ -390,9 +381,9 @@ export default function CheckoutModal() {
                       <p className="text-[10px] uppercase font-black text-emerald-500 tracking-widest">Pay with Wallet</p>
                       <p className="text-xs text-zinc-500">Will be deducted</p>
                     </div>
-                    <span className="text-lg font-black text-emerald-400">{formatCurrency(dynamicFee)}</span>
+                    <span className="text-lg font-black text-emerald-400">{formatCurrency(fee)}</span>
                   </div>
-                  <p className="text-xs font-bold text-emerald-500 ml-1">Wallet will deduct only {formatCurrency(dynamicFee)}</p>
+                  <p className="text-xs font-bold text-emerald-500 ml-1">Wallet will deduct only {formatCurrency(fee)}</p>
                 </div>
               ) : (
                 <>
@@ -401,7 +392,7 @@ export default function CheckoutModal() {
                       <p className="text-[10px] uppercase font-black text-[#8cb800] dark:text-[#d4ff00] tracking-widest">Pay Now Online</p>
                       <p className="text-xs text-zinc-500">Platform fee</p>
                     </div>
-                    <span className="text-lg font-black text-zinc-900 dark:text-white">{formatCurrency(dynamicFee)}</span>
+                    <span className="text-lg font-black text-zinc-900 dark:text-white">{formatCurrency(fee)}</span>
                   </div>
                   <div className="flex justify-between items-center p-3 mt-2 rounded-xl bg-zinc-100/50 dark:bg-zinc-800/30 border border-zinc-200 dark:border-zinc-700">
                     <div>
@@ -421,7 +412,7 @@ export default function CheckoutModal() {
             <Button variant="outline" fullWidth disabled={loading} onClick={() => { closeCheckout(); openCart(); }}>
               Adjust Order
             </Button>
-            <Button fullWidth loading={loading} onClick={handleContinue} disabled={items.length === 0 || (paymentMethod === 'wallet' && (walletBalance === null || walletBalance < dynamicFee))}>
+            <Button fullWidth loading={loading} onClick={handleContinue} disabled={items.length === 0 || (paymentMethod === 'wallet' && (walletBalance === null || walletBalance < fee))}>
               {loading ? "Processing..." : "Verify & Place Order"}
             </Button>
           </div>

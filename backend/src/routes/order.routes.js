@@ -1,9 +1,98 @@
 const express = require('express');
 const prisma = require('../config/prisma');
 const { protect, restrictTo } = require('../middlewares/auth.middleware');
-const { calculatePlatformFee } = require('../utils/calculateFee');
+const { calculateOrderTotals } = require('../utils/orderCalculator');
 
 const router = express.Router();
+
+/**
+ * Helper to process referral rewards when an order is completed
+ */
+async function processReferralRewards(vendorId) {
+  const completedOrders = await prisma.order.count({
+    where: {
+      vendorId,
+      status: 'completed'
+    }
+  });
+
+  if (completedOrders === 10) {
+    const referral = await prisma.referral.findFirst({
+      where: {
+        referredUser: vendorId,
+        rewardGiven: false
+      }
+    });
+
+    if (referral) {
+      const referrerUser = await prisma.user.findFirst({
+        where: { referralCode: referral.referrerCode }
+      });
+
+      if (referrerUser) {
+        const wallet = await prisma.wallet.update({
+          where: { userId: referrerUser.id },
+          data: { balance: { increment: 100 } }
+        });
+        await prisma.walletTransaction.create({
+          data: {
+            walletId: wallet.id,
+            amount: 100,
+            type: 'credit',
+            source: 'referral'
+          }
+        });
+      } else {
+        const referrerCust = await prisma.customer.findFirst({
+          where: { referralCode: referral.referrerCode }
+        });
+
+        if (referrerCust) {
+          const wallet = await prisma.wallet.update({
+            where: { customerId: referrerCust.id },
+            data: { balance: { increment: 100 } }
+          });
+          await prisma.walletTransaction.create({
+            data: {
+              walletId: wallet.id,
+              amount: 100,
+              type: 'credit',
+              source: 'referral'
+            }
+          });
+        }
+      }
+
+      await prisma.referral.update({
+        where: { id: referral.id },
+        data: { rewardGiven: true }
+      });
+    }
+  }
+}
+
+// Calculate Total (Public)
+router.post('/calculate-total', async (req, res, next) => {
+  try {
+    const { subtotal, vendorId } = req.body;
+    
+    // Fetch vendor to check for GST
+    const vendor = await prisma.user.findUnique({
+      where: { id: vendorId },
+      select: { hasGst: true, vendorType: true }
+    });
+
+    const totals = calculateOrderTotals({ 
+      subtotal, 
+      hasGst: vendor?.hasGst || false,
+      vendorType: vendor?.vendorType || 'food'
+    });
+
+    res.json({ success: true, data: totals });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Create Order (Public — Guest Checkout)
 router.post('/', async (req, res, next) => {
@@ -37,7 +126,16 @@ router.post('/', async (req, res, next) => {
 
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    const fee = calculatePlatformFee(parseFloat(totalAmount));
+    const vendor = await prisma.user.findUnique({
+      where: { id: vendorId },
+      select: { hasGst: true, vendorType: true }
+    });
+
+    const totals = calculateOrderTotals({ 
+      subtotal: totalAmount, 
+      hasGst: vendor?.hasGst || false,
+      vendorType: vendor?.vendorType || 'food'
+    });
 
     const order = await prisma.order.create({
       data: {
@@ -46,9 +144,9 @@ router.post('/', async (req, res, next) => {
         customerId: customer.id,
         vendorId,
         items,
-        totalAmount: parseFloat(totalAmount),
-        platformFee: fee,
-        finalAmount: parseFloat(totalAmount) + fee,
+        totalAmount: totals.subtotal,
+        platformFee: totals.platformFee,
+        finalAmount: totals.finalTotal,
         status: 'pending',
         deliveryTime: deliveryTime || 'ASAP',
         expiresAt,
@@ -199,73 +297,44 @@ router.patch('/:id', protect, restrictTo('vendor'), async (req, res, next) => {
     }
 
 
+    // Find existing order to check vendor type
+    const existingOrder = await prisma.order.findUnique({
+      where: { id: req.params.id },
+      include: { vendor: { select: { vendorType: true } } }
+    });
+
+    if (!existingOrder) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    const isFood = existingOrder.vendor.vendorType === 'food' || !existingOrder.vendor.vendorType;
+
+    // 🍟 Logic for Food Handover Confirmation
+    if (status === 'completed' && isFood) {
+      // If customer already confirmed, we can complete now
+      if (existingOrder.pickupConfirmedByCustomer) {
+        dataToUpdate.status = 'completed';
+      } else {
+        dataToUpdate.status = 'handover_pending';
+      }
+      dataToUpdate.handoverCompletedByVendor = true;
+      dataToUpdate.handoverCompletedAt = new Date();
+    }
+
+    // Clear customer actions when order moves beyond ready
+    if (status === 'completed' || status === 'handover_pending') {
+      dataToUpdate.customerAction = null;
+      dataToUpdate.customerDelayMinutes = null;
+      dataToUpdate.customerDelayUpdatedAt = null;
+    }
+
     const order = await prisma.order.update({
       where: { id: req.params.id },
       data: dataToUpdate
     });
 
-    if (status === 'completed') {
-      const vendorId = order.vendorId;
-      const completedOrders = await prisma.order.count({
-        where: {
-          vendorId,
-          status: 'completed'
-        }
-      });
-
-      if (completedOrders === 10) {
-        const referral = await prisma.referral.findFirst({
-          where: {
-            referredUser: vendorId,
-            rewardGiven: false
-          }
-        });
-
-        if (referral) {
-          const referrerUser = await prisma.user.findFirst({
-            where: { referralCode: referral.referrerCode }
-          });
-
-          if (referrerUser) {
-            const wallet = await prisma.wallet.update({
-              where: { userId: referrerUser.id },
-              data: { balance: { increment: 100 } }
-            });
-            await prisma.walletTransaction.create({
-              data: {
-                walletId: wallet.id,
-                amount: 100,
-                type: 'credit',
-                source: 'referral'
-              }
-            });
-          } else {
-            const referrerCust = await prisma.customer.findFirst({
-              where: { referralCode: referral.referrerCode }
-            });
-
-            if (referrerCust) {
-              const wallet = await prisma.wallet.update({
-                where: { customerId: referrerCust.id },
-                data: { balance: { increment: 100 } }
-              });
-              await prisma.walletTransaction.create({
-                data: {
-                  walletId: wallet.id,
-                  amount: 100,
-                  type: 'credit',
-                  source: 'referral'
-                }
-              });
-            }
-          }
-
-          await prisma.referral.update({
-            where: { id: referral.id },
-            data: { rewardGiven: true }
-          });
-        }
-      }
+    if (order.status === 'completed') {
+      await processReferralRewards(order.vendorId);
     }
 
     res.status(200).json({ success: true, data: order });
@@ -277,7 +346,7 @@ router.patch('/:id', protect, restrictTo('vendor'), async (req, res, next) => {
 // Update Customer Action (Public — for 'ready' orders)
 router.post('/customer-action', async (req, res, next) => {
   try {
-    const { orderId, action } = req.body;
+    const { orderId, action, delayMinutes } = req.body;
     const validActions = ['coming', 'delayed', 'contact'];
 
     if (!validActions.includes(action)) {
@@ -299,10 +368,71 @@ router.post('/customer-action', async (req, res, next) => {
       });
     }
 
+    const updateData = { customerAction: action };
+    
+    if (action === 'delayed') {
+      updateData.customerDelayMinutes = delayMinutes ? parseInt(delayMinutes) : 5;
+      updateData.customerDelayUpdatedAt = new Date();
+    } else {
+      // Clear delay if customer says they are coming or contacting
+      updateData.customerDelayMinutes = null;
+      updateData.customerDelayUpdatedAt = null;
+    }
+
     const updated = await prisma.order.update({
       where: { id: orderId },
-      data: { customerAction: action }
+      data: updateData
     });
+
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Customer Confirm Pickup (Public for tracking page)
+router.post('/:id/confirm-pickup', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const order = await prisma.order.findUnique({
+      where: { id }
+    });
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    // Allow confirmation from ready or handover_pending
+    if (order.status !== 'handover_pending' && order.status !== 'ready') {
+      return res.status(400).json({
+        success: false,
+        message: 'Confirmation allowed only when order is ready or handover initiated'
+      });
+    }
+
+    const dataToUpdate = {
+      pickupConfirmedByCustomer: true,
+      pickupConfirmedAt: new Date()
+    };
+
+    // If vendor already completed handover, we can complete now
+    if (order.handoverCompletedByVendor) {
+      dataToUpdate.status = 'completed';
+    } else {
+      // If customer clicks first, stay in 'ready' or keep current, but track confirmation
+      // We don't have a 'customer_confirmed_pending_vendor' status, so we stay in 'ready'
+      // but the field 'pickupConfirmedByCustomer' will be true.
+    }
+
+    const updated = await prisma.order.update({
+      where: { id },
+      data: dataToUpdate
+    });
+
+    if (updated.status === 'completed') {
+      await processReferralRewards(updated.vendorId);
+    }
 
     res.json({ success: true, data: updated });
   } catch (error) {
