@@ -62,7 +62,20 @@ export function AuthProvider({ children }) {
     throw new Error('Login failed');
   };
 
-  const loginAsAdmin = async () => login('admin@queueless.com', 'password123');
+  const loginAsAdmin = async (password) => {
+    try {
+      const response = await api.post('/admin/login', { password });
+      if (response.data.success) {
+        const { token, user: userData } = response.data.data;
+        localStorage.setItem('ql_token', token);
+        setUser(userData);
+        return userData;
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Admin login failed';
+      throw new Error(msg);
+    }
+  };
 
   const register = async (data, role) => {
     const response = await api.post('/auth/register', { ...data, role });

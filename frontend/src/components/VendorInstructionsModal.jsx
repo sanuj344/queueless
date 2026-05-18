@@ -25,7 +25,7 @@ export default function VendorInstructionsModal({ isOpen, onClose }) {
       <div className="space-y-6 py-2">
         <div className="bg-[#d4ff00]/5 border border-[#d4ff00]/10 rounded-2xl p-4">
           <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-            Welcome to <span className="font-bold text-[#8cb800] dark:text-[#d4ff00]">QueueLess</span>! Please follow these guidelines to provide the best experience to your customers.
+            Welcome to <span className="font-bold text-[#8cb800] dark:text-[#d4ff00]">Qzaam</span>! Please follow these guidelines to provide the best experience to your customers.
           </p>
         </div>
 

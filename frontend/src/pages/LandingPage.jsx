@@ -46,7 +46,7 @@ export default function LandingPage() {
         </h1>
 
         <p className="max-w-xl text-zinc-600 dark:text-zinc-400 text-base sm:text-lg md:text-xl leading-relaxed mb-10">
-          QueueLess turns any table into a smart order point. No paper menus.
+          Qzaam turns any table into a smart order point. No paper menus.
           No waiting. Just scan and go.
         </p>
 
@@ -93,7 +93,7 @@ export default function LandingPage() {
       <section className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         {/* Label */}
         <p className="text-xs font-semibold text-[#8cb800] dark:text-[#d4ff00] tracking-[0.2em] uppercase text-center mb-4">
-          Why QueueLess
+          Why Qzaam
         </p>
         <h2 className="text-3xl sm:text-5xl font-black text-center tracking-tight mb-4 text-zinc-900 dark:text-white">
           Built for speed.{' '}
@@ -180,7 +180,7 @@ export default function LandingPage() {
             Ready to skip the queue?
           </h2>
           <p className="text-zinc-700 dark:text-zinc-400 mb-10 max-w-md mx-auto relative">
-            Join thousands of restaurants already using QueueLess to serve
+            Join thousands of restaurants already using Qzaam to serve
             faster and smarter.
           </p>
           {user?.role !== 'vendor' && user?.role !== 'admin' && (

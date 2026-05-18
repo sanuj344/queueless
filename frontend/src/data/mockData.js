@@ -1,4 +1,4 @@
-// Mock vendor and menu data for QueueLess
+// Mock vendor and menu data for Qzaam
 
 export const vendor = {
   id: 'v001',

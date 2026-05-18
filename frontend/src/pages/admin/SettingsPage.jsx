@@ -48,7 +48,7 @@ export default function SettingsPage() {
                 <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">Platform Name</label>
                 <input 
                   type="text" 
-                  defaultValue="QueueLess"
+                  defaultValue="Qzaam"
                   className="w-full bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#d4ff00] text-white"
                 />
               </div>
@@ -56,7 +56,7 @@ export default function SettingsPage() {
                 <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">Support Email</label>
                 <input 
                   type="email" 
-                  defaultValue="support@queueless.com"
+                  defaultValue="support@qzaam.com"
                   className="w-full bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#d4ff00] text-white"
                 />
               </div>
@@ -88,7 +88,7 @@ export default function SettingsPage() {
                 <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">Platform Description</label>
                 <textarea 
                   rows={3}
-                  defaultValue="QueueLess is a next-gen digital ordering platform for restaurants and food courts."
+                  defaultValue="Qzaam is a next-gen digital ordering platform for restaurants and food courts."
                   className="w-full bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#d4ff00] text-white resize-none"
                 />
               </div>

@@ -83,7 +83,7 @@ export default function WalletPage() {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_SkrpjWAPFjMaX5',
         amount: order.amount,
         currency: order.currency,
-        name: 'QueueLess Wallet',
+        name: 'Qzaam Wallet',
         description: `Top-up for ₹${topUpAmount}`,
         order_id: order.id,
         handler: async (response) => {
@@ -143,7 +143,7 @@ export default function WalletPage() {
         {/* Balance & Add Money Section */}
         <div className="space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#d4ff00]/10 text-[#8cb800] dark:text-[#d4ff00] text-[10px] font-black uppercase tracking-widest">
-            QueueLess Digital Cash
+            Qzaam Digital Cash
           </div>
           <h1 className="text-4xl font-black text-zinc-900 dark:text-white leading-tight">
             My <span className="text-[#8cb800] dark:text-[#d4ff00]">Wallet</span>
@@ -187,7 +187,7 @@ export default function WalletPage() {
         {/* Copy Referral Code Section */}
         <div className="space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#d4ff00]/10 text-[#8cb800] dark:text-[#d4ff00] text-[10px] font-black uppercase tracking-widest">
-            QueueLess Referral Code
+            Qzaam Referral Code
           </div>
           <h1 className="text-4xl font-black text-zinc-900 dark:text-white leading-tight">
             Gift <span className="text-[#8cb800] dark:text-[#d4ff00]">₹100</span>

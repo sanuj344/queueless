@@ -15,7 +15,7 @@ export default function AboutPage() {
             Who <span className="text-[#8cb800] dark:text-[#d4ff00]">We Are</span>
           </h1>
           <p className="text-zinc-600 dark:text-zinc-400 text-sm leading-relaxed max-w-2xl mx-auto">
-            QueueLess is a time-based local quick-service operating system designed to completely remove line-waiting and queuing from daily life.
+            Qzaam is a time-based local quick-service operating system designed to completely remove line-waiting and queuing from daily life.
           </p>
         </div>
 

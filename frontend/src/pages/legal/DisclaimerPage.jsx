@@ -19,7 +19,7 @@ export default function DisclaimerPage() {
         {/* Content */}
         <Card className="p-6 sm:p-8 bg-zinc-50 dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800 shadow-xl space-y-6 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
           <p>
-            QueueLess operates strictly as a technology software platform and does not manufacture, prepare, or directly supply any of the food or items on its menu pages.
+            Qzaam operates strictly as a technology software platform and does not manufacture, prepare, or directly supply any of the food or items on its menu pages.
           </p>
 
           <ul className="list-disc pl-5 space-y-3">
@@ -32,7 +32,7 @@ export default function DisclaimerPage() {
           </ul>
 
           <p className="border-t border-zinc-200 dark:border-zinc-800 pt-4 font-bold text-zinc-700 dark:text-zinc-300">
-            By placing orders via QueueLess, you acknowledge and understand that usage is at your own risk.
+            By placing orders via Qzaam, you acknowledge and understand that usage is at your own risk.
           </p>
         </Card>
 

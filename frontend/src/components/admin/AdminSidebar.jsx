@@ -20,8 +20,8 @@ export default function AdminSidebar({ onClose }) {
       {/* Brand */}
       <div className="p-6 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-1 select-none">
-          <span className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">Queue</span>
-          <span className="text-xl font-black tracking-tight text-[#8cb800] dark:text-[#d4ff00]">Less</span>
+          <span className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">Qz</span>
+          <span className="text-xl font-black tracking-tight text-[#8cb800] dark:text-[#d4ff00]">aam</span>
         </Link>
         <button 
           onClick={onClose}

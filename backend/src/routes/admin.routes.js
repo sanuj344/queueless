@@ -1,8 +1,54 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const prisma = require('../config/prisma');
 const { protect, restrictTo } = require('../middlewares/auth.middleware');
 
 const router = express.Router();
+
+router.post('/login', async (req, res, next) => {
+  try {
+    const { password } = req.body;
+    if (!password) {
+      return res.status(400).json({ success: false, message: 'Password is required' });
+    }
+    if (password !== 'admin@123') {
+      return res.status(401).json({ success: false, message: 'Invalid admin password' });
+    }
+
+    // Fetch the admin user from database
+    const admin = await prisma.user.findFirst({
+      where: { role: 'admin' }
+    });
+
+    if (!admin) {
+      return res.status(404).json({ success: false, message: 'Admin user not found. Please seed the database first.' });
+    }
+
+    const token = jwt.sign(
+      { id: admin.id, email: admin.email, role: admin.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Admin login successful',
+      data: {
+        token,
+        user: {
+          id: admin.id,
+          name: admin.name,
+          email: admin.email,
+          mobile: admin.mobile,
+          role: admin.role,
+          createdAt: admin.createdAt,
+        }
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // All routes here are protected and restricted to admin
 router.use(protect, restrictTo('admin'));

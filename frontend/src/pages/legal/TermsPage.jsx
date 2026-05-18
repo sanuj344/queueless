@@ -21,7 +21,7 @@ export default function TermsPage() {
           <section className="space-y-2">
             <h2 className="text-lg font-bold text-zinc-900 dark:text-white">1.1 Introduction</h2>
             <p>
-              QueueLess is a digital quick-service operating system that facilitates time-based food and retail ordering between customers and vendors. By accessing this platform, you agree to these Terms.
+              Qzaam is a digital quick-service operating system that facilitates time-based food and retail ordering between customers and vendors. By accessing this platform, you agree to these Terms.
             </p>
           </section>
 
@@ -64,7 +64,7 @@ export default function TermsPage() {
 
           <section className="space-y-2">
             <h2 className="text-lg font-bold text-zinc-900 dark:text-white">1.7 Limitation of Liability</h2>
-            <p>QueueLess is not responsible for food quality, supply issues, or vendor preparation delays.</p>
+            <p>Qzaam is not responsible for food quality, supply issues, or vendor preparation delays.</p>
           </section>
 
           <section className="space-y-2">

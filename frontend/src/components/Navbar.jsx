@@ -54,8 +54,8 @@ export default function Navbar() {
 
             {/* Logo */}
             <Link to="/" className="flex items-center gap-1 select-none">
-              <span className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">Queue</span>
-              <span className="text-xl font-black tracking-tight text-[#d4ff00] drop-shadow-[0_0_2px_rgba(212,255,0,0.5)] dark:drop-shadow-none">Less</span>
+              <span className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">Qz</span>
+              <span className="text-xl font-black tracking-tight text-[#d4ff00] drop-shadow-[0_0_2px_rgba(212,255,0,0.5)] dark:drop-shadow-none">aam</span>
             </Link>
 
             {/* Nav Links — desktop (role priority: customer > vendor > admin > guest) */}

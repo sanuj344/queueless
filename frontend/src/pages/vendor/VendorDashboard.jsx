@@ -784,7 +784,7 @@ export default function VendorDashboard() {
                     onClick={() => {
                       const link = document.createElement('a');
                       link.href = qrData.qrUrl;
-                      link.download = 'queueless-menu-qr.png';
+                      link.download = 'qzaam-menu-qr.png';
                       link.target = '_blank'; // Needed for external URLs sometimes
                       document.body.appendChild(link);
                       link.click();

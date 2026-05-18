@@ -39,7 +39,7 @@ const Footer = () => {
         {/* BRAND */}
         <div>
           <h1 className="text-white text-2xl font-bold">
-            Queue<span className="text-lime-400">Less</span>
+            Qz<span className="text-lime-400">aam</span>
           </h1>
           <p className="mt-4 text-sm text-zinc-500">
             The ultimate quick-service operating system.
@@ -99,7 +99,7 @@ const Footer = () => {
 
       {/* BOTTOM LINE */}
       <div className="max-w-7xl mx-auto border-t border-gray-800 mt-10 pt-6 text-sm text-center text-zinc-600">
-        © 2026 QueueLess. All rights reserved.
+        © 2026 Qzaam. All rights reserved.
       </div>
 
       <CustomerLoginModal

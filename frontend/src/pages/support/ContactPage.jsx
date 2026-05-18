@@ -45,7 +45,7 @@ export default function ContactPage() {
                 Email us directly regarding vendor onboarding or merchant inquiries.
               </p>
               <p className="text-base font-black text-[#8cb800] dark:text-[#d4ff00] font-mono mt-3">
-                queueless4u@gmail.com
+                qzaam4u@gmail.com
               </p>
             </div>
             <p className="text-xs text-zinc-400 mt-2">Average response: &lt; 2 hours</p>

@@ -137,7 +137,7 @@ export default function CustomerLoginModal({ isOpen, onClose, isCheckoutFlow = f
 
         
         <p className="text-[10px] text-zinc-400 text-center mt-6 uppercase tracking-widest">
-          Secure login via <span className="text-[#8cb800] dark:text-[#d4ff00] font-bold">QueueLess OTP</span>
+          Secure login via <span className="text-[#8cb800] dark:text-[#d4ff00] font-bold">Qzaam OTP</span>
         </p>
       </div>
     </Modal>

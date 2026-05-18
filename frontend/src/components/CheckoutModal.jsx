@@ -171,7 +171,7 @@ export default function CheckoutModal() {
         key: import.meta.env.VITE_RAZORPAY_KEY || 'rzp_test_SkrpjWAPFjMaX5',
         amount: rzpOrder.amount,
         currency: 'INR',
-        name: 'QueueLess',
+        name: 'Qzaam',
         description: 'Payment for platform fee',
         order_id: rzpOrder.id,
         handler: async (response) => {

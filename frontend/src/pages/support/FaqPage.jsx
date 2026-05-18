@@ -17,7 +17,7 @@ const faqs = [
     a: "Yes, but only before the vendor starts the preparation stage."
   },
   {
-    q: "How is QueueLess different?",
+    q: "How is Qzaam different?",
     a: "It focuses on time-based pickup directly at our terminals, not instant delivery."
   },
   {

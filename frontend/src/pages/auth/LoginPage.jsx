@@ -3,27 +3,25 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/Button';
 import Card from '../../components/Card';
+import AdminLoginModal from '../../components/AdminLoginModal';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login, loginAsAdmin } = useAuth();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
 
-  const handleAdminLogin = async () => {
+  const handleAdminLogin = () => {
     setError('');
-    setIsLoading(true);
-    try {
-      await loginAsAdmin();
-      navigate('/admin/dashboard');
-    } catch (err) {
-      setError('Admin login failed. Please ensure the admin user is seeded.');
-    } finally {
-      setIsLoading(false);
-    }
+    setIsAdminModalOpen(true);
+  };
+
+  const handleAdminLoginSuccess = () => {
+    navigate('/admin/dashboard');
   };
 
   const handleSubmit = async (e) => {
@@ -124,6 +122,11 @@ export default function LoginPage() {
           </div>
         </Card>
       </div>
+      <AdminLoginModal
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
+        onLoginSuccess={handleAdminLoginSuccess}
+      />
     </div>
   );
 }

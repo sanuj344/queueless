@@ -15,7 +15,7 @@ export default function CustomerHub() {
             Customer <span className="text-[#8cb800] dark:text-[#d4ff00]">Hub</span>
           </h1>
           <p className="text-zinc-600 dark:text-zinc-400 text-sm leading-relaxed max-w-2xl mx-auto">
-            Everything you need to know about using QueueLess to skip the lines and pick up your items seamlessly.
+            Everything you need to know about using Qzaam to skip the lines and pick up your items seamlessly.
           </p>
         </div>
 
